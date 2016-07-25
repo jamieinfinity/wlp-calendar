@@ -16,7 +16,7 @@
     "bump": "npm --no-git-tag-version version patch",
     "bumptag": "npm version patch -m 'Tag %s'",
     "bundle": "node -e 'process.stdout.write(\"var version = \\\"\" + require(\"./package.json\").version + \"\\\";export * from \\\"../index\\\"; export {version};\");' > build/bundle.js",
-    "rollup": "rollup -f umd -g d3:d3,d3-tip:d3.tip -n wlp_calendar -o build/wlp-calendar.js -- build/bundle.js",
+    "rollup": "rollup -f umd -g d3:d3,d3-tip:d3.tip,d3-grid:d3.layout.grid -n wlp_calendar -o build/wlp-calendar.js -- build/bundle.js",
     "css": "cp src/css/calendar.css build/wlp-calendar.css",
     "pretest": "mkdir -p build && npm run bundle && npm run rollup && npm run css",
     "test": "faucet `find test -name '*-test.js'` && eslint index.js src/js",
@@ -29,6 +29,7 @@
   },
   "dependencies": {
     "d3": "^3.5.13",
+    "d3-grid": "^0.1.1",
     "d3-tip": "^0.6.7"
   },
   "devDependencies": {

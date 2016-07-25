@@ -3,12 +3,12 @@
 <head>
     <meta charset="utf-8">
     <title>D3 Prototyping</title>
-    <!--<link href="css/timeline.css" rel="stylesheet" type="text/css"/>-->
-    <!--<script src="https://d3js.org/d3.v3.min.js" charset="utf-8"></script>-->
-    <!--<script src="http://labratrevenge.com/d3-tip/javascripts/d3.tip.v0.6.3.js"></script>-->
-    <!--<script src="build/wlp-calendar.js"></script>-->
+    <script src="https://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+    <script src="http://labratrevenge.com/d3-tip/javascripts/d3.tip.v0.6.3.js"></script>
+    <script src="node_modules/d3-grid/d3-grid.js"></script>
+    <script src="build/wlp-calendar.js"></script>
     <link href="style.css" rel="stylesheet" type="text/css"/>
-    <!--<link href="build/wlp-calendar.css" rel="stylesheet" type="text/css"/>-->
+    <link href="build/wlp-calendar.css" rel="stylesheet" type="text/css"/>
 </head>
 
 <body>
@@ -17,10 +17,20 @@
 
 <script type="text/javascript">
 
-//    wlp_timeline.drawCalendar("#rootdiv", 900);
+    wlp_calendar.drawCalendar("#rootdiv");
 //
 //    d3.json("test/_data/stl_crime_data.json", function (error, data) {
-//        wlp_calendar.addData(dates);
+        let dates = [
+                new Date("December 16, 2000"),
+                new Date("December 16, 2001"),
+                new Date("December 16, 2002"),
+                new Date("December 16, 2003"),
+                new Date("December 16, 2004"),
+                new Date("December 16, 2005"),
+                new Date("December 16, 2006"),
+                new Date("March 16, 2007")
+        ];
+        wlp_calendar.addData(dates);
 //    });
 
     //    window.onresize = function() {
