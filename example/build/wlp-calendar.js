@@ -883,11 +883,20 @@ var select = function(selector) {
 };
 
 function makeCalendar(domElementID) {
-    const container = select(domElementID).append("div")
+    select(domElementID).append("div")
         .attr("id", "calendarContainer");
+    select("#calendarContainer").append("div")
+        .attr("id", "yearContainer");
 
-    container.append("div")
-        .attr("id", "yearDiv");
+    let years = [2015, 2016, 2017];
+
+    select("#yearContainer").selectAll('div').data(years).enter().append('div')
+        .attr('class', 'yearDiv')
+        .text(function(d) {
+            return d;
+        })
+        .on('click', () => {});
+
 }
 
 exports.makeCalendar = makeCalendar;
