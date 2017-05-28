@@ -1,0 +1,27 @@
+#!/bin/bash
+
+# Run test first
+./script/test
+
+build_dir="build"
+example_dir="example"
+entry_point="index.js"
+target_point="wlp-calendar"
+
+# Delete example/build dir
+rm -rf $example_dir/$build_dir
+
+# Create a build folder
+mkdir $example_dir/$build_dir/
+
+cp src/css/wlp-calendar.css $build_dir/wlp-calendar.css
+#cp src/resources/* $build_dir/
+rollup -c -f umd -n wlp_calendar -o $build_dir/$target_point.js -- $entry_point
+
+# Remember live reload happens only with example build, once done prepublish has to be run again
+cp src/css/wlp-calendar.css $example_dir/$build_dir/wlp-calendar.css
+#cp src/resources/* $example_dir/$build_dir/
+rollup -c $1 -f umd -n wlp_calendar -o $example_dir/$build_dir/$target_point.js -- $entry_point
+
+# uglify seems to not work so well with es6 code
+# uglifyjs $build_dir/$target_point.js -c negate_iife=false -m -o $build_dir/$target_point.min.js

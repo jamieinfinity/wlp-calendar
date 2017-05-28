@@ -1,44 +1,51 @@
 {
   "name": "wlp-calendar",
-  "version": "0.0.24",
+  "version": "0.1.0",
   "description": "One of several core D3-based WorldLine Project components that is an interactive heatmap calendar for selecting specific date ranges (day, week, month, year).",
   "author": "Jamie Williams",
   "license": "BSD-3-Clause",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jamieinfinity/wlp-calendar.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jamieinfinity/wlp-calendar/issues"
+  },
+  "homepage": "https://github.com/jamieinfinity/wlp-calendar#readme",
   "keywords": [
     "D3",
     "calendar",
     "date picker",
     "WorldLine Project"
   ],
-  "main": "build/wlp-calendar.js",
-  "jsnext:main": "index",
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
   "scripts": {
-    "bump": "npm --no-git-tag-version version patch",
-    "bumptag": "npm version patch -m 'Tag %s'",
-    "bundle": "node -e 'process.stdout.write(\"var version = \\\"\" + require(\"./package.json\").version + \"\\\";export * from \\\"../index\\\"; export {version};\");' > build/bundle.js",
-    "rollup": "rollup -f umd -g d3:d3,d3-tip:d3.tip,d3-grid:d3.layout.grid -n wlp_calendar -o build/wlp-calendar.js -- build/bundle.js",
-    "css": "cp src/css/calendar.css build/wlp-calendar.css",
-    "pretest": "mkdir -p build && npm run bundle && npm run rollup && npm run css",
-    "test": "faucet `find test -name '*-test.js'` && eslint index.js src/js",
-    "uglify": "uglifyjs build/wlp-calendar.js -c -m -o build/wlp-calendar.min.js",
-    "build": "rm -f build/wlp-calendar.zip && zip -j build/wlp-calendar.zip -- LICENSE README.md build/wlp-calendar.js build/wlp-calendar.css build/wlp-calendar.min.js",
-    "prepublish": "npm run test && npm run uglify && npm run build",
-    "css:watch": "watch 'npm run css' src/css/",
-    "js:watch": "watch 'npm run pretest' src/js/",
-    "watch": "parallelshell 'npm run css:watch' 'npm run js:watch'"
+    "pretest": "script/pretest",
+    "test": "script/test",
+    "prepublish": "script/prepublish",
+    "start": "script/start",
+    "dev": "NODE_ENV=dev && script/prepublish --watch",
+    "reload": "livereload 'example/build/'",
+    "watch": "npm-run-all --parallel reload dev"
   },
   "dependencies": {
-    "d3": "^3.5.13",
-    "d3-grid": "^0.1.1",
-    "d3-tip": "^0.6.7"
+    "d3-selection": "^1.0.6"
   },
   "devDependencies": {
-    "faucet": "0.0",
-    "parallelshell": "^2.0.0",
-    "rollup": "0.25.0",
-    "tape": "^4.4",
-    "uglify-js": "^2.6",
-    "watch": "^0.17.1",
-    "license-checker": "^5.1.2"
+    "babel-eslint": "^7.2.3",
+    "eslint": "^3.12.2",
+    "http-server": "^0.9.0",
+    "json2module": "0.0",
+    "livereload": "^0.6.0",
+    "npm-run-all": "^4.0.0",
+    "rollup": "0.36",
+    "rollup-plugin-ascii": "0.0.3",
+    "rollup-plugin-commonjs": "^8.0.2",
+    "rollup-plugin-node-resolve": "^3.0.0",
+    "rollup-plugin-replace": "^1.1.1",
+    "tape": "^4.6.3"
   }
 }
