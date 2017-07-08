@@ -1,34 +1,76 @@
 
+
 #calendarContainer {
     display: flex;
     justify-content: center;
-    font-family: "Avenir";
-    color: #999;
-    font-size: 10px;
+    /*background-color: lightblue;*/
 }
 
-#yearContainer {
+#calendarRootDiv {
     display: flex;
-    flex-direction: row;
-    justify-content: flex-start;
-    border-style: solid;
-    border-width: 1px;
-    border-color: #aaa;
-    border-collapse: collapse;
+    font-family: "Avenir";
+    font-size: 10px;
+    /*background-color: lightgreen;*/
 }
 
-.yearDiv {
-    width: 100px;
-    padding: 5px;
-    text-align: center;
-    border-style: solid;
-    border-width: 0px 1px 0px 0px;
-    border-color: #aaa;
+#calendarInnerSVG {
+    overflow: visible;
+    /*background-color: lightblue;*/
 }
-.yearDiv:last-child {
-    border-width: 0px;
+
+#innerCalendarBackground {
+    fill: #aaa;
+    stroke: #eee;
+    stroke-width: 4;
 }
-.yearDiv:hover {
-    color: #222;
-    font-weight: bold;
+
+#calendarDays rect.day {
+    stroke: #eee;
+    stroke-width: 1;
 }
+
+#calendarDays path {
+    /*stroke: #5B5B5B;*/
+    stroke: #eee;
+    stroke-width: 4;
+}
+
+.weekLabel {
+    font-family: "Avenir";
+    font-size: 12px;
+    fill: #aaa;
+}
+
+/*#calendarContainer {*/
+    /*display: flex;*/
+    /*justify-content: center;*/
+    /*font-family: "Avenir";*/
+    /*color: #999;*/
+    /*font-size: 10px;*/
+/*}*/
+
+/*#yearContainer {*/
+    /*display: flex;*/
+    /*flex-direction: row;*/
+    /*justify-content: flex-start;*/
+    /*border-style: solid;*/
+    /*border-width: 1px;*/
+    /*border-color: #aaa;*/
+    /*border-collapse: collapse;*/
+/*}*/
+
+/*.yearDiv {*/
+    /*width: 100px;*/
+    /*padding: 5px;*/
+    /*text-align: center;*/
+    /*border-style: solid;*/
+    /*border-width: 0px 1px 0px 0px;*/
+    /*border-color: #aaa;*/
+/*}*/
+/*.yearDiv:last-child {*/
+    /*border-width: 0px;*/
+/*}*/
+/*.yearDiv:hover {*/
+    /*color: #222;*/
+    /*font-weight: bold;*/
+/*}*/
