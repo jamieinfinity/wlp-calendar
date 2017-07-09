@@ -15,7 +15,7 @@
 
 #calendarInnerSVG {
     overflow: visible;
-    /*background-color: lightblue;*/
+    background-color: lightblue;
 }
 
 #innerCalendarBackground {
@@ -33,6 +33,17 @@
     /*stroke: #5B5B5B;*/
     stroke: #eee;
     stroke-width: 4;
+}
+
+#calendarWeeks rect.week {
+    stroke: #eee;
+    stroke-width: 1;
+}
+
+.weekdayLabel {
+    font-family: "Avenir";
+    font-size: 12px;
+    fill: #aaa;
 }
 
 .weekLabel {

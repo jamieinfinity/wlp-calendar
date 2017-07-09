@@ -3,6 +3,7 @@ import {timeFormat} from "d3-time-format";
 import {scaleLinear} from "d3-scale";
 import {timeDay} from "d3-time";
 import {line, curveLinear} from "d3-shape";
+import {range} from "d3-array";
 
 const prettyDateFormat = timeFormat("%B %e, %Y"),
     // dateFormat = timeFormat("%Y-%m-%d"),
@@ -12,6 +13,7 @@ const prettyDateFormat = timeFormat("%B %e, %Y"),
     weekNumForDate = timeFormat("%W"),
     numWeeksMax = 53,
     numWeekdaysMax = 6,
+    calendarGroupSpacing = 2,
     calendarMargin = {top: 10, right: 10, bottom: 10, left: 50},
     calendarSize = {height: 0, width: 0};
 
@@ -46,20 +48,20 @@ function makeCalendar(domElementID, width, year) {
 
     calendarSize.width = width - calendarMargin.left - calendarMargin.right;
     daySquareSize = calendarSize.width / numWeeksMax;
-    calendarSize.height = daySquareSize * (numWeekdaysMax + 1);
+    calendarSize.height = daySquareSize * (numWeekdaysMax + 1) + daySquareSize + calendarGroupSpacing;
     xScale = scaleLinear().domain([0, numWeeksMax]).range([0, numWeeksMax * daySquareSize]);
     yScale = scaleLinear()
         .domain([0, numWeekdaysMax])
         .range([numWeekdaysMax * daySquareSize, 0]);
 
 
-    const dataset = {},
+    const daysDictionary = {},
         endDay = new Date("12/31/" + year);
     let dateIter = new Date("1/1/" + year),
         maxDays = timeDay.count(dateIter, endDay) + 1;
 
     for (let i = 0; i < maxDays; i++) {
-        addDayEntryToDatasetForDate(dataset, dateIter, -1);
+        addDayEntryToDatasetForDate(daysDictionary, dateIter, -1);
         dateIter.setDate(dateIter.getDate() + 1);
     }
 
@@ -97,9 +99,11 @@ function makeCalendar(domElementID, width, year) {
         .curve(curveLinear);
 
 
-    const data = Object.keys(dataset).map(function (key) {
-        return dataset[key];
+    const daysData = Object.keys(daysDictionary).map(function (key) {
+        return daysDictionary[key];
     });
+
+    const weeksData = range(0, numWeeksMax);
 
     const container = select(domElementID).append("div")
             .attr("id", "calendarContainer"),
@@ -125,10 +129,12 @@ function makeCalendar(domElementID, width, year) {
 
 
     const calendarDays = svgInnerCalendar.append('g').attr('id', 'calendarDays'),
-        rect = calendarDays.selectAll("rect").data(data),
-        path = calendarDays.selectAll("path").data(monthPathPoints);
+        daySquares = calendarDays.selectAll("rect").data(daysData),
+        path = calendarDays.selectAll("path").data(monthPathPoints),
+        weeks = svgInnerCalendar.append('g').attr('id', 'calendarWeeks'),
+        weekSquares = weeks.selectAll("rect").data(weeksData);
 
-    rect.enter().append("rect")
+    daySquares.enter().append("rect")
         .attr("class", "day")
         .attr("y", function (d) {
             return yScale(d.weekday);
@@ -144,19 +150,35 @@ function makeCalendar(domElementID, width, year) {
         .attr("d", monthLine)
         .attr("fill", "none");
 
+    weekSquares.enter().append("rect")
+        .attr("class", "week")
+        .attr("y", yScale(-1) + calendarGroupSpacing)
+        .attr("x", function (d) {
+            return xScale(d);
+        })
+        .attr("height", daySquareSize)
+        .attr("width", daySquareSize)
+        .attr("fill", "#ccc");
 
-    let weekLabelForWeekDay = {0: "M", 1: "Tu", 2: "W", 3: "Th", 4: "F", 5: "Sa", 6: "Su"};
-    let weekLabelInfo = [];
+    svgInnerCalendar.append("text")
+        .attr("class", "weekLabel")
+        .attr("x", xScale(-2.5))
+        .attr("y", yScale(-1) + calendarGroupSpacing + daySquareSize/1.5)
+        .text("weeks");
+
+
+    let labelForWeekDay = {0: "M", 1: "Tu", 2: "W", 3: "Th", 4: "F", 5: "Sa", 6: "Su"};
+    let weekdayLabelInfo = [];
     for (let j = 0; j < 7; j++) {
         let weekday = 6 - j - 0.7;
         let week = -1.4;
-        weekLabelInfo.push({"week": week, "weekday": weekday, "label": weekLabelForWeekDay[j]});
+        weekdayLabelInfo.push({"week": week, "weekday": weekday, "label": labelForWeekDay[j]});
     }
 
-    let weekText = svgInnerCalendar.selectAll("text.weekLabel").data(weekLabelInfo);
+    let weekdayText = svgInnerCalendar.selectAll("text.weekdayLabel").data(weekdayLabelInfo);
 
-    weekText.enter().append("text")
-        .attr("class", "weekLabel")
+    weekdayText.enter().append("text")
+        .attr("class", "weekdayLabel")
         .attr("x", function (d) {
             return xScale(d.week);
         })
@@ -168,24 +190,6 @@ function makeCalendar(domElementID, width, year) {
         });
 
 }
-
-
-// function makeCalendar(domElementID) {
-//     select(domElementID).append("div")
-//         .attr("id", "calendarContainer");
-//     select("#calendarContainer").append("div")
-//         .attr("id", "yearContainer");
-//
-//     let years = [2015, 2016, 2017];
-//
-//     select("#yearContainer").selectAll('div').data(years).enter().append('div')
-//         .attr('class', 'yearDiv')
-//         .text(function(d) {
-//             return d;
-//         })
-//         .on('click', () => {});
-//
-// }
 
 
 export {makeCalendar};
