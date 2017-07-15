@@ -20,8 +20,14 @@
 
 #innerCalendarBackground {
     fill: #aaa;
+}
+
+#outerCalendarBackground {
+    fill: white;
+    fill-opacity: 0;
+    /*fill: #aaa;*/
     stroke: #eee;
-    stroke-width: 4;
+    stroke-width: 3;
 }
 
 #calendarDays rect.day {
@@ -30,27 +36,35 @@
 }
 
 #calendarDays path {
-    /*stroke: #5B5B5B;*/
     stroke: #eee;
-    stroke-width: 4;
+    stroke-width: 3;
 }
 
 #calendarWeeks rect.week {
     stroke: #eee;
-    stroke-width: 1;
+    stroke-width: 3;
 }
 
-.weekdayLabel {
-    font-family: "Avenir";
-    font-size: 12px;
+#calendarMonths rect.month {
+    stroke: #eee;
+    stroke-width: 3;
+}
+
+.gridRowLabel {
+    cursor: default;
+    font-family: "Monaco";
+    font-size: 11px;
     fill: #aaa;
 }
 
-.weekLabel {
-    font-family: "Avenir";
-    font-size: 12px;
-    fill: #aaa;
+.monthLabel {
+    cursor: default;
+    font-family: "Monaco";
+    font-size: 7px;
+    fill: white;
+    opacity: 0.8;
 }
+
 
 /*#calendarContainer {*/
     /*display: flex;*/
