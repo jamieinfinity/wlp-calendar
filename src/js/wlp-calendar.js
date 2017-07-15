@@ -3,7 +3,7 @@ import {timeFormat} from "d3-time-format";
 import {scaleLinear} from "d3-scale";
 import {timeDay, timeMonths} from "d3-time";
 import {line, curveLinear} from "d3-shape";
-import {range} from "d3-array";
+import {range, max, min} from "d3-array";
 
 const prettyDateFormat = timeFormat("%B %e, %Y"),
     // dateFormat = timeFormat("%Y-%m-%d"),
@@ -18,7 +18,6 @@ const prettyDateFormat = timeFormat("%B %e, %Y"),
     calendarSize = {height: 0, width: 0};
 
 let daySquareSize,
-    // monthRectWidth,
     xScale,
     yScale;
 
@@ -45,19 +44,21 @@ function addDayEntryToDatasetForDate(dataset, date, steps) {
 }
 
 
-function makeCalendar(domElementID, width, year) {
+function makeCalendar(domElementID, width, years0) {
 
     calendarSize.width = width - calendarMargin.left - calendarMargin.right;
     daySquareSize = calendarSize.width / numWeeksMax;
-    // monthRectWidth = calendarSize.width / 12;
-    calendarSize.height = daySquareSize * (numWeekdaysMax + 1) + 2 * (daySquareSize + calendarGroupSpacing);
+    calendarSize.height = daySquareSize * (numWeekdaysMax + 1) + 3 * (daySquareSize + calendarGroupSpacing);
     xScale = scaleLinear().domain([0, numWeeksMax]).range([0, numWeeksMax * daySquareSize]);
     yScale = scaleLinear()
         .domain([0, numWeekdaysMax])
         .range([numWeekdaysMax * daySquareSize, 0]);
 
 
-    const daysDictionary = {},
+    const year = max(years0),
+        yearsData = range(min(years0), max(years0)+1),
+        yearRectWidth = calendarSize.width / yearsData.length,
+        daysDictionary = {},
         startDay = new Date("1/1/" + year),
         endDay = new Date("12/31/" + year);
     let dateIter = new Date("1/1/" + year),
@@ -169,9 +170,11 @@ function makeCalendar(domElementID, width, year) {
         path = calendarDays.selectAll("path").data(monthPathPoints),
         weeks = svgInnerCalendar.append('g').attr('id', 'calendarWeeks'),
         weekSquares = weeks.selectAll("rect").data(weeksData),
-        months = svgInnerCalendar.append('g').attr('id', 'calendarMonths');
+        months = svgInnerCalendar.append('g').attr('id', 'calendarMonths'),
+        years = svgInnerCalendar.append('g').attr('id', 'calendarYears');
 
     let monthGroups = months.selectAll("g").data(monthsData);
+    let yearGroups = years.selectAll("g").data(yearsData);
 
     daySquares.enter().append("rect")
         .attr("class", "day")
@@ -211,6 +214,12 @@ function makeCalendar(domElementID, width, year) {
         .attr("y", yScale(-2.8) + 2*calendarGroupSpacing)
         .text("M");
 
+    svgInnerCalendar.append("text")
+        .attr("class", "gridRowLabel")
+        .attr("x", xScale(-1.1))
+        .attr("y", yScale(-3.8) + 3*calendarGroupSpacing)
+        .text("Y");
+
     monthGroups = monthGroups.enter().append("g");
     monthGroups.append("rect")
         .attr("class", "month")
@@ -230,6 +239,24 @@ function makeCalendar(domElementID, width, year) {
             return xScale(d.x0) + xScale(d.width)/2.5;
         })
         .text(function(d) {return d.name.toUpperCase();});
+
+    yearGroups = yearGroups.enter().append("g");
+    yearGroups.append("rect")
+        .attr("class", "year")
+        .attr("y", yScale(-3) + 3*calendarGroupSpacing)
+        .attr("x", function(d, i) {
+            return i*yearRectWidth;
+        })
+        .attr("height", daySquareSize)
+        .attr("width", yearRectWidth)
+        .attr("fill", "#ccc");
+    yearGroups.append("text")
+        .attr("class", "yearLabel")
+        .attr("y", yScale(-3) + 3.6*calendarGroupSpacing + daySquareSize/2)
+        .attr("x", function(d, i) {
+            return i*yearRectWidth + yearRectWidth/2.25;
+        })
+        .text(function(d) {return d;});
 
     let labelForWeekDay = {0: "M", 1: "T", 2: "W", 3: "T", 4: "F", 5: "S", 6: "S"};
     let weekdayLabelInfo = [];

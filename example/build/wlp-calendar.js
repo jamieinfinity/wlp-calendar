@@ -1911,6 +1911,41 @@ var threshold = function(values, p, valueof) {
   return value0 + (value1 - value0) * (i - i0);
 };
 
+var max = function(values, valueof) {
+  var n = values.length,
+      i = -1,
+      value,
+      max;
+
+  if (valueof == null) {
+    while (++i < n) { // Find the first comparable value.
+      if ((value = values[i]) != null && value >= value) {
+        max = value;
+        while (++i < n) { // Compare the remaining values.
+          if ((value = values[i]) != null && value > max) {
+            max = value;
+          }
+        }
+      }
+    }
+  }
+
+  else {
+    while (++i < n) { // Find the first comparable value.
+      if ((value = valueof(values[i], i, values)) != null && value >= value) {
+        max = value;
+        while (++i < n) { // Compare the remaining values.
+          if ((value = valueof(values[i], i, values)) != null && value > max) {
+            max = value;
+          }
+        }
+      }
+    }
+  }
+
+  return max;
+};
+
 var min = function(values, valueof) {
   var n = values.length,
       i = -1,
@@ -5234,19 +5269,21 @@ function addDayEntryToDatasetForDate(dataset, date, steps) {
 }
 
 
-function makeCalendar(domElementID, width, year) {
+function makeCalendar(domElementID, width, years0) {
 
     calendarSize.width = width - calendarMargin.left - calendarMargin.right;
     daySquareSize = calendarSize.width / numWeeksMax;
-    // monthRectWidth = calendarSize.width / 12;
-    calendarSize.height = daySquareSize * (numWeekdaysMax + 1) + 2 * (daySquareSize + calendarGroupSpacing);
+    calendarSize.height = daySquareSize * (numWeekdaysMax + 1) + 3 * (daySquareSize + calendarGroupSpacing);
     xScale = linear().domain([0, numWeeksMax]).range([0, numWeeksMax * daySquareSize]);
     yScale = linear()
         .domain([0, numWeekdaysMax])
         .range([numWeekdaysMax * daySquareSize, 0]);
 
 
-    const daysDictionary = {},
+    const year = max(years0),
+        yearsData = range(min(years0), max(years0)+1),
+        yearRectWidth = calendarSize.width / yearsData.length,
+        daysDictionary = {},
         startDay = new Date("1/1/" + year),
         endDay = new Date("12/31/" + year);
     let dateIter = new Date("1/1/" + year),
@@ -5358,9 +5395,11 @@ function makeCalendar(domElementID, width, year) {
         path = calendarDays.selectAll("path").data(monthPathPoints),
         weeks = svgInnerCalendar.append('g').attr('id', 'calendarWeeks'),
         weekSquares = weeks.selectAll("rect").data(weeksData),
-        months$$1 = svgInnerCalendar.append('g').attr('id', 'calendarMonths');
+        months$$1 = svgInnerCalendar.append('g').attr('id', 'calendarMonths'),
+        years = svgInnerCalendar.append('g').attr('id', 'calendarYears');
 
     let monthGroups = months$$1.selectAll("g").data(monthsData);
+    let yearGroups = years.selectAll("g").data(yearsData);
 
     daySquares.enter().append("rect")
         .attr("class", "day")
@@ -5400,6 +5439,12 @@ function makeCalendar(domElementID, width, year) {
         .attr("y", yScale(-2.8) + 2*calendarGroupSpacing)
         .text("M");
 
+    svgInnerCalendar.append("text")
+        .attr("class", "gridRowLabel")
+        .attr("x", xScale(-1.1))
+        .attr("y", yScale(-3.8) + 3*calendarGroupSpacing)
+        .text("Y");
+
     monthGroups = monthGroups.enter().append("g");
     monthGroups.append("rect")
         .attr("class", "month")
@@ -5419,6 +5464,24 @@ function makeCalendar(domElementID, width, year) {
             return xScale(d.x0) + xScale(d.width)/2.5;
         })
         .text(function(d) {return d.name.toUpperCase();});
+
+    yearGroups = yearGroups.enter().append("g");
+    yearGroups.append("rect")
+        .attr("class", "year")
+        .attr("y", yScale(-3) + 3*calendarGroupSpacing)
+        .attr("x", function(d, i) {
+            return i*yearRectWidth;
+        })
+        .attr("height", daySquareSize)
+        .attr("width", yearRectWidth)
+        .attr("fill", "#ccc");
+    yearGroups.append("text")
+        .attr("class", "yearLabel")
+        .attr("y", yScale(-3) + 3.6*calendarGroupSpacing + daySquareSize/2)
+        .attr("x", function(d, i) {
+            return i*yearRectWidth + yearRectWidth/2.25;
+        })
+        .text(function(d) {return d;});
 
     let labelForWeekDay = {0: "M", 1: "T", 2: "W", 3: "T", 4: "F", 5: "S", 6: "S"};
     let weekdayLabelInfo = [];

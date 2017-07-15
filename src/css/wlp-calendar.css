@@ -50,6 +50,11 @@
     stroke-width: 3;
 }
 
+#calendarYears rect.year {
+    stroke: #eee;
+    stroke-width: 3;
+}
+
 .gridRowLabel {
     cursor: default;
     font-family: "Monaco";
@@ -58,6 +63,14 @@
 }
 
 .monthLabel {
+    cursor: default;
+    font-family: "Monaco";
+    font-size: 7px;
+    fill: white;
+    opacity: 0.8;
+}
+
+.yearLabel {
     cursor: default;
     font-family: "Monaco";
     font-size: 7px;
