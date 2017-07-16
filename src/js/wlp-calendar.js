@@ -43,27 +43,14 @@ function addDayEntryToDatasetForDate(dataset, date, steps) {
     dataset[key] = entry;
 }
 
+function updateGrid(year) {
 
-function makeCalendar(domElementID, width, years0) {
-
-    calendarSize.width = width - calendarMargin.left - calendarMargin.right;
-    daySquareSize = calendarSize.width / numWeeksMax;
-    calendarSize.height = daySquareSize * (numWeekdaysMax + 1) + 3 * (daySquareSize + calendarGroupSpacing);
-    xScale = scaleLinear().domain([0, numWeeksMax]).range([0, numWeeksMax * daySquareSize]);
-    yScale = scaleLinear()
-        .domain([0, numWeekdaysMax])
-        .range([numWeekdaysMax * daySquareSize, 0]);
-
-
-    const year = max(years0),
-        yearsData = range(min(years0), max(years0)+1),
-        yearRectWidth = calendarSize.width / yearsData.length,
-        daysDictionary = {},
+    const daysDictionary = {},
         startDay = new Date("1/1/" + year),
-        endDay = new Date("12/31/" + year);
-    let dateIter = new Date("1/1/" + year),
-        maxDays = timeDay.count(dateIter, endDay) + 1;
+        endDay = new Date("12/31/" + year),
+        maxDays = timeDay.count(startDay, endDay) + 1;
 
+    let dateIter = new Date("1/1/" + year);
     for (let i = 0; i < maxDays; i++) {
         addDayEntryToDatasetForDate(daysDictionary, dateIter, -1);
         dateIter.setDate(dateIter.getDate() + 1);
@@ -100,11 +87,11 @@ function makeCalendar(domElementID, width, years0) {
 
     let monthsData = [];
     let prevMaxX = 0;
-    monthPathPoints.forEach(function(points, i) {
+    monthPathPoints.forEach(function (points, i) {
         let maxX = -1;
-        points.forEach(function(point) {
-            if(point[1]===-1) {
-                if(point[0] > maxX) {
+        points.forEach(function (point) {
+            if (point[1] === -1) {
+                if (point[0] > maxX) {
                     maxX = point[0];
                 }
             }
@@ -113,7 +100,8 @@ function makeCalendar(domElementID, width, years0) {
         monthsData.push({
             name: monthNames[i],
             x0: prevMaxX,
-            width: (i===11 ? (numWeeksMax - prevMaxX) : (maxX - prevMaxX))});
+            width: (i === 11 ? (numWeeksMax - prevMaxX) : (maxX - prevMaxX))
+        });
         prevMaxX = maxX;
     });
 
@@ -133,7 +121,87 @@ function makeCalendar(domElementID, width, years0) {
 
     const weeksData = range(0, numWeeksMax);
 
-    const container = select(domElementID).append("div")
+    const calendarDays = select('#calendarDays'),
+        daySquares = calendarDays.selectAll("rect").data(daysData),
+        path = calendarDays.selectAll("path").data(monthPathPoints),
+        weeks = select('#calendarWeeks'),
+        weekSquares = weeks.selectAll("rect").data(weeksData),
+        monthGroups = select('#calendarMonths').selectAll("g").data(monthsData);
+
+    daySquares.enter().append("rect")
+        .attr("class", "day")
+        .attr("height", daySquareSize)
+        .attr("width", daySquareSize)
+        .attr("fill", "#ccc")
+        .merge(daySquares)
+        .attr("y", function (d) {
+            return yScale(d.weekday);
+        })
+        .attr("x", function (d) {
+            return xScale(d.week);
+        });
+    daySquares.exit().remove();
+
+    path.enter().append("path")
+        .attr("fill", "none")
+        .merge(path)
+        .attr("d", monthLine);
+    path.exit().remove();
+
+    weekSquares.enter().append("rect")
+        .attr("class", "week")
+        .attr("height", daySquareSize)
+        .attr("width", daySquareSize)
+        .attr("fill", "#ccc")
+        .merge(weekSquares)
+        .attr("y", yScale(-1) + calendarGroupSpacing)
+        .attr("x", function (d) {
+            return xScale(d);
+        });
+    weekSquares.exit().remove();
+
+    let monthGroupsNew = monthGroups.enter().append("g");
+    monthGroupsNew.merge(monthGroups);
+    monthGroupsNew.append("rect")
+        .attr("class", "month")
+        .attr("height", daySquareSize)
+        .attr("fill", "#ccc")
+        .merge(monthGroups.select(".month"))
+        .attr("y", yScale(-2) + 2 * calendarGroupSpacing)
+        .attr("x", function (d) {
+            return xScale(d.x0);
+        })
+        .attr("width", function (d) {
+            return xScale(d.width);
+        });
+    monthGroupsNew.append("text")
+        .attr("class", "monthLabel")
+        .merge(monthGroups.select(".monthLabel"))
+        .attr("y", yScale(-2) + 2.6 * calendarGroupSpacing + daySquareSize / 2)
+        .attr("x", function (d) {
+            return xScale(d.x0) + xScale(d.width) / 2.5;
+        })
+        .text(function (d) {
+            return d.name.toUpperCase();
+        });
+    monthGroups.exit().remove();
+}
+
+
+function makeCalendar(domElementID, width, years0) {
+
+    calendarSize.width = width - calendarMargin.left - calendarMargin.right;
+    daySquareSize = calendarSize.width / numWeeksMax;
+    calendarSize.height = daySquareSize * (numWeekdaysMax + 1) + 3 * (daySquareSize + calendarGroupSpacing);
+    xScale = scaleLinear().domain([0, numWeeksMax]).range([0, numWeeksMax * daySquareSize]);
+    yScale = scaleLinear()
+        .domain([0, numWeekdaysMax])
+        .range([numWeekdaysMax * daySquareSize, 0]);
+
+    const year = max(years0),
+        yearsData = range(min(years0), max(years0) + 1),
+        yearRectWidth = calendarSize.width / yearsData.length,
+        container = select(domElementID).append("div")
             .attr("id", "calendarContainer"),
         root = container.append("div")
             .attr("id", "calendarRootDiv"),
@@ -164,43 +232,13 @@ function makeCalendar(domElementID, width, years0) {
         .attr("width", calendarSize.width)
         .attr("height", calendarSize.height);
 
+    svgInnerCalendar.append('g').attr('id', 'calendarDays');
+    svgInnerCalendar.append('g').attr('id', 'calendarWeeks');
+    svgInnerCalendar.append('g').attr('id', 'calendarMonths');
 
-    const calendarDays = svgInnerCalendar.append('g').attr('id', 'calendarDays'),
-        daySquares = calendarDays.selectAll("rect").data(daysData),
-        path = calendarDays.selectAll("path").data(monthPathPoints),
-        weeks = svgInnerCalendar.append('g').attr('id', 'calendarWeeks'),
-        weekSquares = weeks.selectAll("rect").data(weeksData),
-        months = svgInnerCalendar.append('g').attr('id', 'calendarMonths'),
-        years = svgInnerCalendar.append('g').attr('id', 'calendarYears');
+    updateGrid(year);
 
-    let monthGroups = months.selectAll("g").data(monthsData);
-    let yearGroups = years.selectAll("g").data(yearsData);
-
-    daySquares.enter().append("rect")
-        .attr("class", "day")
-        .attr("y", function (d) {
-            return yScale(d.weekday);
-        })
-        .attr("x", function (d) {
-            return xScale(d.week);
-        })
-        .attr("height", daySquareSize)
-        .attr("width", daySquareSize)
-        .attr("fill", "#ccc");
-
-    path.enter().append("path")
-        .attr("d", monthLine)
-        .attr("fill", "none");
-
-    weekSquares.enter().append("rect")
-        .attr("class", "week")
-        .attr("y", yScale(-1) + calendarGroupSpacing)
-        .attr("x", function (d) {
-            return xScale(d);
-        })
-        .attr("height", daySquareSize)
-        .attr("width", daySquareSize)
-        .attr("fill", "#ccc");
+    let yearGroups = svgInnerCalendar.append('g').attr('id', 'calendarYears').selectAll("g").data(yearsData);
 
     svgInnerCalendar.append("text")
         .attr("class", "gridRowLabel")
@@ -211,52 +249,37 @@ function makeCalendar(domElementID, width, years0) {
     svgInnerCalendar.append("text")
         .attr("class", "gridRowLabel")
         .attr("x", xScale(-1.1))
-        .attr("y", yScale(-2.8) + 2*calendarGroupSpacing)
+        .attr("y", yScale(-2.8) + 2 * calendarGroupSpacing)
         .text("M");
 
     svgInnerCalendar.append("text")
         .attr("class", "gridRowLabel")
         .attr("x", xScale(-1.1))
-        .attr("y", yScale(-3.8) + 3*calendarGroupSpacing)
+        .attr("y", yScale(-3.8) + 3 * calendarGroupSpacing)
         .text("Y");
 
-    monthGroups = monthGroups.enter().append("g");
-    monthGroups.append("rect")
-        .attr("class", "month")
-        .attr("y", yScale(-2) + 2*calendarGroupSpacing)
-        .attr("x", function(d) {
-            return xScale(d.x0);
-        })
-        .attr("height", daySquareSize)
-        .attr("width", function(d) {
-            return xScale(d.width);
-        })
-        .attr("fill", "#ccc");
-    monthGroups.append("text")
-        .attr("class", "monthLabel")
-        .attr("y", yScale(-2) + 2.6*calendarGroupSpacing + daySquareSize/2)
-        .attr("x", function (d) {
-            return xScale(d.x0) + xScale(d.width)/2.5;
-        })
-        .text(function(d) {return d.name.toUpperCase();});
-
-    yearGroups = yearGroups.enter().append("g");
+    yearGroups = yearGroups.enter().append("g")
+        .on("click", function (d) {
+            updateGrid(d);
+        });
     yearGroups.append("rect")
         .attr("class", "year")
-        .attr("y", yScale(-3) + 3*calendarGroupSpacing)
-        .attr("x", function(d, i) {
-            return i*yearRectWidth;
+        .attr("y", yScale(-3) + 3 * calendarGroupSpacing)
+        .attr("x", function (d, i) {
+            return i * yearRectWidth;
         })
         .attr("height", daySquareSize)
         .attr("width", yearRectWidth)
         .attr("fill", "#ccc");
     yearGroups.append("text")
         .attr("class", "yearLabel")
-        .attr("y", yScale(-3) + 3.6*calendarGroupSpacing + daySquareSize/2)
-        .attr("x", function(d, i) {
-            return i*yearRectWidth + yearRectWidth/2.25;
+        .attr("y", yScale(-3) + 3.6 * calendarGroupSpacing + daySquareSize / 2)
+        .attr("x", function (d, i) {
+            return i * yearRectWidth + yearRectWidth / 2.25;
         })
-        .text(function(d) {return d;});
+        .text(function (d) {
+            return d;
+        });
 
     let labelForWeekDay = {0: "M", 1: "T", 2: "W", 3: "T", 4: "F", 5: "S", 6: "S"};
     let weekdayLabelInfo = [];
