@@ -5387,7 +5387,6 @@ function updateGrid(year) {
 
     let monthGroupsNew = monthGroups.enter().append("g");
     monthGroupsNew.merge(monthGroups);
-
     monthGroupsNew.append("rect")
         .attr("class", "month")
         .attr("height", daySquareSize)
@@ -5414,7 +5413,7 @@ function updateGrid(year) {
 }
 
 
-function makeCalendar(domElementID, width, years0) {
+function makeCalendar(domElementID, width, years0, updateSelectedDateSpan) {
 
     calendarSize.width = width - calendarMargin.left - calendarMargin.right;
     daySquareSize = calendarSize.width / numWeeksMax;
@@ -5487,6 +5486,9 @@ function makeCalendar(domElementID, width, years0) {
     yearGroups = yearGroups.enter().append("g")
         .on("click", function (d) {
             updateGrid(d);
+            const startDate = new Date(d, 0, 1, 0, 0, 0);
+            const endDate = new Date(d, 11, 31, 23, 59, 59);
+            updateSelectedDateSpan([startDate, endDate]);
         });
     yearGroups.append("rect")
         .attr("class", "year")
