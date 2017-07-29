@@ -5268,7 +5268,7 @@ function addDayEntryToDatasetForDate(dataset, date, steps) {
     dataset[key] = entry;
 }
 
-function updateGrid(year) {
+function updateGrid(year, updateSelectedDateSpan) {
 
     const daysDictionary = {},
         startDay = new Date("1/1/" + year),
@@ -5364,6 +5364,11 @@ function updateGrid(year) {
         })
         .attr("x", function (d) {
             return xScale(d.week);
+        })
+        .on("click", function (d) {
+            const startDate = new Date(d.date + ' 00:00:00');
+            const endDate = day.offset(startDate, 1);
+            updateSelectedDateSpan([startDate, endDate]);
         });
     daySquares.exit().remove();
 
@@ -5382,6 +5387,12 @@ function updateGrid(year) {
         .attr("y", yScale(-1) + calendarGroupSpacing)
         .attr("x", function (d) {
             return xScale(d);
+        })
+        .on("click", function (d) {
+            let parseWeek = timeParse('%Y-%W');
+            const startDate = parseWeek(year + '-' + d);
+            const endDate = day.offset(sunday.ceil(startDate), 1);
+            updateSelectedDateSpan([startDate, endDate]);
         });
     weekSquares.exit().remove();
 
@@ -5398,10 +5409,17 @@ function updateGrid(year) {
         })
         .attr("width", function (d) {
             return xScale(d.width);
+        })
+        .on("click", function (d) {
+            const monthDate = new Date(d.name + ' 15 ' + year);
+            const startDate = month.floor(monthDate);
+            const endDate = month.ceil(monthDate);
+            updateSelectedDateSpan([startDate, endDate]);
         });
     monthGroupsNew.append("text")
         .attr("class", "monthLabel")
         .merge(monthGroups.select(".monthLabel"))
+        .attr("pointer-events", "none")
         .attr("y", yScale(-2) + 2.6 * calendarGroupSpacing + daySquareSize / 2)
         .attr("x", function (d) {
             return xScale(d.x0) + xScale(d.width) / 2.5;
@@ -5461,7 +5479,7 @@ function makeCalendar(domElementID, width, years0, updateSelectedDateSpan) {
     svgInnerCalendar.append('g').attr('id', 'calendarWeeks');
     svgInnerCalendar.append('g').attr('id', 'calendarMonths');
 
-    updateGrid(year);
+    updateGrid(year, updateSelectedDateSpan);
 
     let yearGroups = svgInnerCalendar.append('g').attr('id', 'calendarYears').selectAll("g").data(yearsData);
 
@@ -5485,9 +5503,9 @@ function makeCalendar(domElementID, width, years0, updateSelectedDateSpan) {
 
     yearGroups = yearGroups.enter().append("g")
         .on("click", function (d) {
-            updateGrid(d);
+            updateGrid(d, updateSelectedDateSpan);
             const startDate = new Date(d, 0, 1, 0, 0, 0);
-            const endDate = new Date(d, 11, 31, 23, 59, 59);
+            const endDate = new Date(d+1, 0, 1, 0, 0, 0);
             updateSelectedDateSpan([startDate, endDate]);
         });
     yearGroups.append("rect")
