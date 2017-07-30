@@ -882,6 +882,12 @@ var select = function(selector) {
       : new Selection([[selector]], root);
 };
 
+var selectAll = function(selector) {
+  return typeof selector === "string"
+      ? new Selection([document.querySelectorAll(selector)], [document.documentElement])
+      : new Selection([selector == null ? [] : selector], root);
+};
+
 var t0 = new Date;
 var t1 = new Date;
 
@@ -5242,6 +5248,7 @@ const calendarGroupSpacing = 5;
 const calendarMargin = {top: 10, right: 10, bottom: 10, left: 50};
 const calendarSize = {height: 0, width: 0};
 
+let selectedYear = 2017;
 let daySquareSize;
 let xScale;
 let yScale;
@@ -5368,6 +5375,11 @@ function updateGrid(year, updateSelectedDateSpan) {
         .on("click", function (d) {
             const startDate = new Date(d.date + ' 00:00:00');
             const endDate = day.offset(startDate, 1);
+
+            selectAll('#calendarRootSVG').selectAll('rect.selected').classed('selected', false);
+            select(this).classed('selected', true);
+            this.parentNode.appendChild(this);
+
             updateSelectedDateSpan([startDate, endDate]);
         });
     daySquares.exit().remove();
@@ -5392,11 +5404,28 @@ function updateGrid(year, updateSelectedDateSpan) {
             let parseWeek = timeParse('%Y-%W');
             const startDate = parseWeek(year + '-' + d);
             const endDate = day.offset(sunday.ceil(startDate), 1);
+
+            selectAll('#calendarRootSVG').selectAll('rect.selected').classed('selected', false);
+            select(this).classed('selected', true);
+            this.parentNode.appendChild(this);
+
             updateSelectedDateSpan([startDate, endDate]);
         });
     weekSquares.exit().remove();
 
-    let monthGroupsNew = monthGroups.enter().append("g");
+    let monthGroupsNew = monthGroups.enter().append("g")
+        .on("click", function (d) {
+            const monthDate = new Date(d.name + ' 15 ' + year);
+            const startDate = month.floor(monthDate);
+            const endDate = month.ceil(monthDate);
+
+            selectAll('#calendarRootSVG').selectAll('rect.selected').classed('selected', false);
+            select(this).select('rect')
+                .classed('selected', true);
+            this.parentNode.appendChild(this);
+
+            updateSelectedDateSpan([startDate, endDate]);
+        });
     monthGroupsNew.merge(monthGroups);
     monthGroupsNew.append("rect")
         .attr("class", "month")
@@ -5409,12 +5438,6 @@ function updateGrid(year, updateSelectedDateSpan) {
         })
         .attr("width", function (d) {
             return xScale(d.width);
-        })
-        .on("click", function (d) {
-            const monthDate = new Date(d.name + ' 15 ' + year);
-            const startDate = month.floor(monthDate);
-            const endDate = month.ceil(monthDate);
-            updateSelectedDateSpan([startDate, endDate]);
         });
     monthGroupsNew.append("text")
         .attr("class", "monthLabel")
@@ -5452,6 +5475,10 @@ function makeCalendar(domElementID, width, years0, updateSelectedDateSpan) {
             .attr("id", "calendarRootSVG")
             .attr("width", calendarSize.width + calendarMargin.left + calendarMargin.right)
             .attr("height", calendarSize.height + calendarMargin.top + calendarMargin.bottom),
+        svgOuterCalendar = svgRootCalendar.append("g")
+            .attr("id", "calendarOuterSVG")
+            .attr("pointer-events", "none")
+            .attr("transform", "translate(" + calendarMargin.left + "," + calendarMargin.top + ")"),
         svgInnerCalendar = svgRootCalendar.append("svg")
             .attr("id", "calendarInnerSVG")
             .attr("vector-effect", "non-scaling-stroke")
@@ -5459,19 +5486,15 @@ function makeCalendar(domElementID, width, years0, updateSelectedDateSpan) {
             .attr("height", calendarSize.height)
             .attr("x", calendarMargin.left)
             .attr("y", calendarMargin.top)
-            .attr("viewBox", "0 0 " + calendarSize.width + " " + calendarSize.height),
-        svgOuterCalendar = svgRootCalendar.append("g")
-            .attr("id", "calendarOuterSVG")
-            .attr("pointer-events", "none")
-            .attr("transform", "translate(" + calendarMargin.left + "," + calendarMargin.top + ")");
-
-    svgInnerCalendar.append("rect")
-        .attr("id", "innerCalendarBackground")
-        .attr("width", calendarSize.width)
-        .attr("height", calendarSize.height);
+            .attr("viewBox", "0 0 " + calendarSize.width + " " + calendarSize.height);
 
     svgOuterCalendar.append("rect")
         .attr("id", "outerCalendarBackground")
+        .attr("width", calendarSize.width)
+        .attr("height", calendarSize.height);
+
+    svgInnerCalendar.append("rect")
+        .attr("id", "innerCalendarBackground")
         .attr("width", calendarSize.width)
         .attr("height", calendarSize.height);
 
@@ -5503,9 +5526,23 @@ function makeCalendar(domElementID, width, years0, updateSelectedDateSpan) {
 
     yearGroups = yearGroups.enter().append("g")
         .on("click", function (d) {
+            selectedYear = d;
+
             updateGrid(d, updateSelectedDateSpan);
             const startDate = new Date(d, 0, 1, 0, 0, 0);
-            const endDate = new Date(d+1, 0, 1, 0, 0, 0);
+            const endDate = new Date(d + 1, 0, 1, 0, 0, 0);
+
+            selectAll('#calendarRootSVG').selectAll('rect.selected').classed('selected', false);
+            select('#calendarYears').selectAll('text').attr('class', function (d) {
+                if (d === selectedYear) {
+                    return 'yearLabel selected'
+                }
+                return 'yearLabel';
+            });
+            select(this).select('rect')
+                .classed('selected', true);
+            this.parentNode.appendChild(this);
+
             updateSelectedDateSpan([startDate, endDate]);
         });
     yearGroups.append("rect")
@@ -5518,7 +5555,12 @@ function makeCalendar(domElementID, width, years0, updateSelectedDateSpan) {
         .attr("width", yearRectWidth)
         .attr("fill", "#ccc");
     yearGroups.append("text")
-        .attr("class", "yearLabel")
+        .attr('class', function (d) {
+            if (d === selectedYear) {
+                return 'yearLabel selected'
+            }
+            return 'yearLabel';
+        })
         .attr("y", yScale(-3) + 3.6 * calendarGroupSpacing + daySquareSize / 2)
         .attr("x", function (d, i) {
             return i * yearRectWidth + yearRectWidth / 2.25;
