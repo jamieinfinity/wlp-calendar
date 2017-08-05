@@ -5245,7 +5245,7 @@ const weekNumForDate = timeFormat("%W");
 const numWeeksMax = 53;
 const numWeekdaysMax = 6;
 const calendarGroupSpacing = 5;
-const calendarMargin = {top: 10, right: 10, bottom: 10, left: 50};
+const calendarMargin = {top: 10, right: 15, bottom: 10, left: 80};
 const calendarSize = {height: 0, width: 0};
 
 let selectedYear = 2017;
@@ -5415,7 +5415,7 @@ function updateGrid(year, updateSelectedDateSpan) {
 
     let monthGroupsNew = monthGroups.enter().append("g")
         .on("click", function (d) {
-            const monthDate = new Date(d.name + ' 15 ' + year);
+            const monthDate = new Date(d.name + ' 15 ' + selectedYear);
             const startDate = month.floor(monthDate);
             const endDate = month.ceil(monthDate);
 
@@ -5455,6 +5455,7 @@ function updateGrid(year, updateSelectedDateSpan) {
 
 
 function makeCalendar(domElementID, width, years0, updateSelectedDateSpan) {
+    selectedYear = max(years0);
 
     calendarSize.width = width - calendarMargin.left - calendarMargin.right;
     daySquareSize = calendarSize.width / numWeeksMax;
@@ -5464,8 +5465,7 @@ function makeCalendar(domElementID, width, years0, updateSelectedDateSpan) {
         .domain([0, numWeekdaysMax])
         .range([numWeekdaysMax * daySquareSize, 0]);
 
-    const year = max(years0),
-        yearsData = range(min(years0), max(years0) + 1),
+    const yearsData = range(min(years0), max(years0) + 1),
         yearRectWidth = calendarSize.width / yearsData.length,
         container = select(domElementID).append("div")
             .attr("id", "calendarContainer"),
@@ -5502,7 +5502,7 @@ function makeCalendar(domElementID, width, years0, updateSelectedDateSpan) {
     svgInnerCalendar.append('g').attr('id', 'calendarWeeks');
     svgInnerCalendar.append('g').attr('id', 'calendarMonths');
 
-    updateGrid(year, updateSelectedDateSpan);
+    updateGrid(selectedYear, updateSelectedDateSpan);
 
     let yearGroups = svgInnerCalendar.append('g').attr('id', 'calendarYears').selectAll("g").data(yearsData);
 

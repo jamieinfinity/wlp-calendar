@@ -14,7 +14,7 @@ const prettyDateFormat = timeFormat("%B %e, %Y"),
     numWeeksMax = 53,
     numWeekdaysMax = 6,
     calendarGroupSpacing = 5,
-    calendarMargin = {top: 10, right: 10, bottom: 10, left: 50},
+    calendarMargin = {top: 10, right: 15, bottom: 10, left: 80},
     calendarSize = {height: 0, width: 0};
 
 let selectedYear = 2017,

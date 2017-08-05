@@ -13,7 +13,7 @@
 
 #calendarInnerSVG {
     overflow: visible;
-    background-color: lightblue;
+    /*background-color: lightblue;*/
 }
 
 #innerCalendarBackground {
@@ -67,7 +67,7 @@
     font-family: "Monaco";
     font-size: 7px;
     fill: white;
-    opacity: 0.8;
+    opacity: 1;
 }
 
 .yearLabel {
@@ -75,7 +75,7 @@
     font-family: "Monaco";
     font-size: 7px;
     fill: white;
-    opacity: 0.8;
+    opacity: 1;
 }
 
 #calendarYears rect.year.selected {
