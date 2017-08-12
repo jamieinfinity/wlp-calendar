@@ -12,11 +12,9 @@ import {range, max, min} from "d3-array";
 // http://bl.ocks.org/jfreyre/b1882159636cc9e1283a
 // https://www.pinterest.com/pin/395261304766413148/
 // https://www.pinterest.com/pin/157485318196050590/
-
-
+// TODO: Put date range data in grid data arrays rather than computing in on('click')
 
 const prettyDateFormat = timeFormat("%B %e, %Y"),
-    // dateFormat = timeFormat("%Y-%m-%d"),
     monthDateFormat = timeFormat("%b"),
     yearFormat = timeFormat("%Y"),
     weekdayFormat = timeFormat("%w"), // Sunday = 0
@@ -28,16 +26,13 @@ const prettyDateFormat = timeFormat("%B %e, %Y"),
     calendarSize = {height: 0, width: 0};
 
 let selectedYear = 2017,
-    daySquareSize,
-    xScale,
-    yScale;
+    dayGridSquareSize,
+    dayGridXScale,
+    dayGridYScale;
 
 
 function weekdayNumForDate(date) {
-    let weekday = Number(weekdayFormat(date)) - 1;
-    if (weekday === -1) {
-        weekday = numWeekdaysMax;
-    }
+    const weekday = (Number(weekdayFormat(date)) === 0) ? numWeekdaysMax : Number(weekdayFormat(date)) - 1;
     return 6 - weekday;
 }
 
@@ -54,8 +49,62 @@ function addDayEntryToDatasetForDate(dataset, date, steps) {
     dataset[key] = entry;
 }
 
-function updateGrid(year, updateSelectedDateSpan) {
+function getMonthPathData(year) {
+    const monthPathPoints = [];
 
+    for (let m = 0; m < 12; m++) {
+        const pathPoints = [],
+            yMin = -1,
+            yMax = 6,
+            startDay = new Date(year, m, 1),
+            startCoordinate = calendarCoodinateForDate(startDay),
+            endDay = new Date(year, m + 1, 0),
+            endCoordinate = calendarCoodinateForDate(endDay);
+
+        pathPoints[0] = [startCoordinate.week, startCoordinate.weekday];
+        pathPoints[1] = [startCoordinate.week + 1, startCoordinate.weekday];
+        pathPoints[2] = [startCoordinate.week + 1, yMax];
+        pathPoints[3] = [endCoordinate.week, yMax];
+        pathPoints[4] = [endCoordinate.week + 1, yMax];
+        pathPoints[5] = [endCoordinate.week + 1, endCoordinate.weekday - 1];
+        pathPoints[6] = [endCoordinate.week, endCoordinate.weekday - 1];
+        pathPoints[7] = [endCoordinate.week, yMin];
+        pathPoints[8] = [startCoordinate.week, yMin];
+
+        monthPathPoints.push(pathPoints);
+    }
+    return monthPathPoints;
+}
+
+function getMonthGridData(year, monthPathData) {
+    const startDay = new Date("1/1/" + year),
+        endDay = new Date("12/31/" + year);
+    let monthNames = timeMonths(startDay, endDay),
+        monthsData = [],
+        prevMaxX = 0;
+
+    monthNames = monthNames.map(d => monthDateFormat(d));
+
+    monthPathData.forEach((points, i) => {
+        let maxX = -1;
+        points.forEach(point => {
+            if (point[1] === -1) {
+                if (point[0] > maxX) {
+                    maxX = point[0];
+                }
+            }
+        });
+        monthsData.push({
+            name: monthNames[i],
+            x0: prevMaxX,
+            width: (i === 11 ? (numWeeksMax - prevMaxX) : (maxX - prevMaxX))
+        });
+        prevMaxX = maxX;
+    });
+    return monthsData;
+}
+
+function getDaysDictionary(year) {
     const daysDictionary = {},
         startDay = new Date("1/1/" + year),
         endDay = new Date("12/31/" + year),
@@ -66,94 +115,35 @@ function updateGrid(year, updateSelectedDateSpan) {
         addDayEntryToDatasetForDate(daysDictionary, dateIter, -1);
         dateIter.setDate(dateIter.getDate() + 1);
     }
+    return daysDictionary;
+}
 
-    const monthPathPoints = [];
-
-    for (let m = 0; m < 12; m++) {
-        const pathpoints = [],
-            ymin = -1,
-            ymax = 6,
-            startday = new Date(year, m, 1),
-            startcoord = calendarCoodinateForDate(startday),
-            endday = new Date(year, m + 1, 0),
-            endcoord = calendarCoodinateForDate(endday);
-
-        pathpoints[0] = [startcoord.week, startcoord.weekday];
-        pathpoints[1] = [startcoord.week + 1, startcoord.weekday];
-        pathpoints[2] = [startcoord.week + 1, ymax];
-        pathpoints[3] = [endcoord.week, ymax];
-        pathpoints[4] = [endcoord.week + 1, ymax];
-        pathpoints[5] = [endcoord.week + 1, endcoord.weekday - 1];
-        pathpoints[6] = [endcoord.week, endcoord.weekday - 1];
-        pathpoints[7] = [endcoord.week, ymin];
-        pathpoints[8] = [startcoord.week, ymin];
-
-        monthPathPoints.push(pathpoints);
-    }
-
-    let monthNames = timeMonths(startDay, endDay);
-    monthNames = monthNames.map(function (d) {
-        return monthDateFormat(d);
-    });
-
-    let monthsData = [];
-    let prevMaxX = 0;
-    monthPathPoints.forEach(function (points, i) {
-        let maxX = -1;
-        points.forEach(function (point) {
-            if (point[1] === -1) {
-                if (point[0] > maxX) {
-                    maxX = point[0];
-                }
-            }
-        });
-
-        monthsData.push({
-            name: monthNames[i],
-            x0: prevMaxX,
-            width: (i === 11 ? (numWeeksMax - prevMaxX) : (maxX - prevMaxX))
-        });
-        prevMaxX = maxX;
-    });
-
-    let monthLine = line()
-        .x(function (d) {
-            return xScale(d[0]);
-        })
-        .y(function (d) {
-            return yScale(d[1]);
-        })
-        .curve(curveLinear);
+function getDayGridData(year) {
+    const daysDictionary = getDaysDictionary(year);
+    return Object.keys(daysDictionary).map(key => daysDictionary[key]);
+}
 
 
-    const daysData = Object.keys(daysDictionary).map(function (key) {
-        return daysDictionary[key];
-    });
-
-    const weeksData = range(0, numWeeksMax);
-
+function updateGridDays(daysData, monthPathData, updateSelectedDateSpan) {
     const calendarDays = select('#calendarDays'),
+        path = calendarDays.selectAll("path").data(monthPathData),
         daySquares = calendarDays.selectAll("rect").data(daysData),
-        path = calendarDays.selectAll("path").data(monthPathPoints),
-        weeks = select('#calendarWeeks'),
-        weekSquares = weeks.selectAll("rect").data(weeksData),
-        monthGroups = select('#calendarMonths').selectAll("g").data(monthsData);
+        monthLine = line()
+            .x(d => dayGridXScale(d[0]))
+            .y(d => dayGridYScale(d[1]))
+            .curve(curveLinear);
 
     daySquares.enter().append("rect")
         .attr("class", "day")
-        .attr("height", daySquareSize)
-        .attr("width", daySquareSize)
+        .attr("height", dayGridSquareSize)
+        .attr("width", dayGridSquareSize)
         .attr("fill", "#ccc")
         .merge(daySquares)
-        .attr("y", function (d) {
-            return yScale(d.weekday);
-        })
-        .attr("x", function (d) {
-            return xScale(d.week);
-        })
+        .attr("y", d => dayGridYScale(d.weekday))
+        .attr("x", d => dayGridXScale(d.week))
         .on("click", function (d) {
-            const startDate = new Date(d.date + ' 00:00:00');
-            const endDate = timeDay.offset(startDate, 1);
+            const startDate = new Date(d.date + ' 00:00:00'),
+                endDate = timeDay.offset(startDate, 1);
 
             selectAll('#calendarRootSVG').selectAll('rect.selected').classed('selected', false);
             select(this).classed('selected', true);
@@ -168,35 +158,16 @@ function updateGrid(year, updateSelectedDateSpan) {
         .merge(path)
         .attr("d", monthLine);
     path.exit().remove();
+}
 
-    weekSquares.enter().append("rect")
-        .attr("class", "week")
-        .attr("height", daySquareSize)
-        .attr("width", daySquareSize)
-        .attr("fill", "#ccc")
-        .merge(weekSquares)
-        .attr("y", yScale(-1) + calendarGroupSpacing)
-        .attr("x", function (d) {
-            return xScale(d);
-        })
-        .on("click", function (d) {
-            let parseWeek = timeParse('%Y-%W');
-            const startDate = parseWeek(year + '-' + d);
-            const endDate = timeDay.offset(timeWeek.ceil(startDate), 1);
-
-            selectAll('#calendarRootSVG').selectAll('rect.selected').classed('selected', false);
-            select(this).classed('selected', true);
-            this.parentNode.appendChild(this);
-
-            updateSelectedDateSpan([startDate, endDate]);
-        });
-    weekSquares.exit().remove();
+function updateGridMonths(monthsData, updateSelectedDateSpan) {
+    const monthGroups = select('#calendarMonths').selectAll("g").data(monthsData);
 
     let monthGroupsNew = monthGroups.enter().append("g")
         .on("click", function (d) {
-            const monthDate = new Date(d.name + ' 15 ' + selectedYear);
-            const startDate = timeMonth.floor(monthDate);
-            const endDate = timeMonth.ceil(monthDate);
+            const monthDate = new Date(d.name + ' 15 ' + selectedYear),
+                startDate = timeMonth.floor(monthDate),
+                endDate = timeMonth.ceil(monthDate);
 
             selectAll('#calendarRootSVG').selectAll('rect.selected').classed('selected', false);
             select(this).select('rect')
@@ -208,45 +179,123 @@ function updateGrid(year, updateSelectedDateSpan) {
     monthGroupsNew.merge(monthGroups);
     monthGroupsNew.append("rect")
         .attr("class", "month")
-        .attr("height", daySquareSize)
+        .attr("height", dayGridSquareSize)
         .attr("fill", "#ccc")
         .merge(monthGroups.select(".month"))
-        .attr("y", yScale(-2) + 2 * calendarGroupSpacing)
-        .attr("x", function (d) {
-            return xScale(d.x0);
-        })
-        .attr("width", function (d) {
-            return xScale(d.width);
-        });
+        .attr("y", dayGridYScale(-2) + 2 * calendarGroupSpacing)
+        .attr("x", d => dayGridXScale(d.x0))
+        .attr("width", d => dayGridXScale(d.width));
     monthGroupsNew.append("text")
         .attr("class", "monthLabel")
         .merge(monthGroups.select(".monthLabel"))
         .attr("pointer-events", "none")
-        .attr("y", yScale(-2) + 2.6 * calendarGroupSpacing + daySquareSize / 2)
-        .attr("x", function (d) {
-            return xScale(d.x0) + xScale(d.width) / 2.5;
-        })
-        .text(function (d) {
-            return d.name.toUpperCase();
-        });
+        .attr("y", dayGridYScale(-2) + 2.6 * calendarGroupSpacing + dayGridSquareSize / 2)
+        .attr("x", d => dayGridXScale(d.x0) + dayGridXScale(d.width) / 2.5)
+        .text(d => d.name.toUpperCase());
     monthGroups.exit().remove();
 }
 
 
+function updateGridWeeks(year, weeksData, updateSelectedDateSpan) {
+    const weeks = select('#calendarWeeks'),
+        weekSquares = weeks.selectAll("rect").data(weeksData);
+
+    weekSquares.enter().append("rect")
+        .attr("class", "week")
+        .attr("height", dayGridSquareSize)
+        .attr("width", dayGridSquareSize)
+        .attr("fill", "#ccc")
+        .merge(weekSquares)
+        .attr("y", dayGridYScale(-1) + calendarGroupSpacing)
+        .attr("x", d => dayGridXScale(d))
+        .on("click", function (d) {
+            const parseWeek = timeParse('%Y-%W'),
+                startDate = parseWeek(year + '-' + d),
+                endDate = timeDay.offset(timeWeek.ceil(startDate), 1);
+
+            selectAll('#calendarRootSVG').selectAll('rect.selected').classed('selected', false);
+            select(this).classed('selected', true);
+            this.parentNode.appendChild(this);
+
+            updateSelectedDateSpan([startDate, endDate]);
+        });
+    weekSquares.exit().remove();
+}
+
+function updateGrid(year, updateSelectedDateSpan) {
+    const daysData = getDayGridData(year),
+        weeksData = range(0, numWeeksMax),
+        monthPathData = getMonthPathData(year),
+        monthsData = getMonthGridData(year, monthPathData);
+
+    updateGridDays(daysData, monthPathData, updateSelectedDateSpan);
+    updateGridWeeks(year, weeksData, updateSelectedDateSpan);
+    updateGridMonths(monthsData, updateSelectedDateSpan);
+}
+
+function updateGridYears(years, updateSelectedDateSpan) {
+    const yearsData = range(min(years), max(years) + 1),
+        yearRectWidth = calendarSize.width / yearsData.length;
+    let yearGroups = select('#calendarInnerSVG').append('g').attr('id', 'calendarYears').selectAll("g").data(yearsData);
+
+    yearGroups = yearGroups.enter().append("g")
+        .on("click", function (d) {
+            selectedYear = d;
+
+            updateGrid(d, updateSelectedDateSpan);
+            const startDate = new Date(d, 0, 1, 0, 0, 0),
+                endDate = new Date(d + 1, 0, 1, 0, 0, 0);
+
+            selectAll('#calendarRootSVG').selectAll('rect.selected').classed('selected', false);
+            select('#calendarYears').selectAll('text').attr('class', function (d) {
+                if (d === selectedYear) {
+                    return 'yearLabel selected';
+                }
+                return 'yearLabel';
+            });
+            select(this).select('rect')
+                .classed('selected', true);
+            this.parentNode.appendChild(this);
+
+            updateSelectedDateSpan([startDate, endDate]);
+        });
+    yearGroups.append("rect")
+        .attr("class", "year")
+        .attr("y", dayGridYScale(-3) + 3 * calendarGroupSpacing)
+        .attr("x", (d, i) => i * yearRectWidth)
+        .attr("height", dayGridSquareSize)
+        .attr("width", yearRectWidth)
+        .attr("fill", "#ccc");
+    yearGroups.append("text")
+        .attr('class', d => (d === selectedYear) ? 'yearLabel selected' : 'yearLabel')  // TODO: use classed
+        .attr("y", dayGridYScale(-3) + 3.6 * calendarGroupSpacing + dayGridSquareSize / 2)
+        .attr("x", (d, i) => i * yearRectWidth + yearRectWidth / 2.25)
+        .text(d => d);
+}
+
+function getWeekDayLabelData() {
+    const labelForWeekDay = {0: "M", 1: "T", 2: "W", 3: "T", 4: "F", 5: "S", 6: "S"},
+        weekdayLabelInfo = [];
+
+    for (let j = 0; j < 7; j++) {
+        const weekday = 6 - j - 0.75,
+            week = -1.1;
+        weekdayLabelInfo.push({"week": week, "weekday": weekday, "label": labelForWeekDay[j]});
+    }
+    return weekdayLabelInfo;
+}
+
 function makeCalendar(domElementID, width, years0, updateSelectedDateSpan) {
     selectedYear = max(years0);
-
     calendarSize.width = width - calendarMargin.left - calendarMargin.right;
-    daySquareSize = calendarSize.width / numWeeksMax;
-    calendarSize.height = daySquareSize * (numWeekdaysMax + 1) + 3 * (daySquareSize + calendarGroupSpacing);
-    xScale = scaleLinear().domain([0, numWeeksMax]).range([0, numWeeksMax * daySquareSize]);
-    yScale = scaleLinear()
+    dayGridSquareSize = calendarSize.width / numWeeksMax;
+    calendarSize.height = dayGridSquareSize * (numWeekdaysMax + 1) + 3 * (dayGridSquareSize + calendarGroupSpacing);
+    dayGridXScale = scaleLinear().domain([0, numWeeksMax]).range([0, numWeeksMax * dayGridSquareSize]);
+    dayGridYScale = scaleLinear()
         .domain([0, numWeekdaysMax])
-        .range([numWeekdaysMax * daySquareSize, 0]);
+        .range([numWeekdaysMax * dayGridSquareSize, 0]);
 
-    const yearsData = range(min(years0), max(years0) + 1),
-        yearRectWidth = calendarSize.width / yearsData.length,
-        container = select(domElementID).append("div")
+    const container = select(domElementID).append("div")
             .attr("id", "calendarContainer"),
         root = container.append("div")
             .attr("id", "calendarRootDiv"),
@@ -265,7 +314,9 @@ function makeCalendar(domElementID, width, years0, updateSelectedDateSpan) {
             .attr("height", calendarSize.height)
             .attr("x", calendarMargin.left)
             .attr("y", calendarMargin.top)
-            .attr("viewBox", "0 0 " + calendarSize.width + " " + calendarSize.height);
+            .attr("viewBox", "0 0 " + calendarSize.width + " " + calendarSize.height),
+        weekdayLabelInfo = getWeekDayLabelData(),
+        weekdayText = svgInnerCalendar.selectAll("text.weekdayLabel").data(weekdayLabelInfo);
 
     svgOuterCalendar.append("rect")
         .attr("id", "outerCalendarBackground")
@@ -283,93 +334,31 @@ function makeCalendar(domElementID, width, years0, updateSelectedDateSpan) {
 
     updateGrid(selectedYear, updateSelectedDateSpan);
 
-    let yearGroups = svgInnerCalendar.append('g').attr('id', 'calendarYears').selectAll("g").data(yearsData);
+    weekdayText.enter().append("text")
+        .attr("class", "gridRowLabel")
+        .attr("x", d => dayGridXScale(d.week))
+        .attr("y", d => dayGridYScale(d.weekday))
+        .text(d => d.label.toUpperCase());
 
     svgInnerCalendar.append("text")
         .attr("class", "gridRowLabel")
-        .attr("x", xScale(-1.1))
-        .attr("y", yScale(-1.8) + calendarGroupSpacing)
+        .attr("x", dayGridXScale(-1.1))
+        .attr("y", dayGridYScale(-1.8) + calendarGroupSpacing)
         .text("W");
 
     svgInnerCalendar.append("text")
         .attr("class", "gridRowLabel")
-        .attr("x", xScale(-1.1))
-        .attr("y", yScale(-2.8) + 2 * calendarGroupSpacing)
+        .attr("x", dayGridXScale(-1.1))
+        .attr("y", dayGridYScale(-2.8) + 2 * calendarGroupSpacing)
         .text("M");
 
     svgInnerCalendar.append("text")
         .attr("class", "gridRowLabel")
-        .attr("x", xScale(-1.1))
-        .attr("y", yScale(-3.8) + 3 * calendarGroupSpacing)
+        .attr("x", dayGridXScale(-1.1))
+        .attr("y", dayGridYScale(-3.8) + 3 * calendarGroupSpacing)
         .text("Y");
 
-    yearGroups = yearGroups.enter().append("g")
-        .on("click", function (d) {
-            selectedYear = d;
-
-            updateGrid(d, updateSelectedDateSpan);
-            const startDate = new Date(d, 0, 1, 0, 0, 0);
-            const endDate = new Date(d + 1, 0, 1, 0, 0, 0);
-
-            selectAll('#calendarRootSVG').selectAll('rect.selected').classed('selected', false);
-            select('#calendarYears').selectAll('text').attr('class', function (d) {
-                if (d === selectedYear) {
-                    return 'yearLabel selected'
-                }
-                return 'yearLabel';
-            });
-            select(this).select('rect')
-                .classed('selected', true);
-            this.parentNode.appendChild(this);
-
-            updateSelectedDateSpan([startDate, endDate]);
-        });
-    yearGroups.append("rect")
-        .attr("class", "year")
-        .attr("y", yScale(-3) + 3 * calendarGroupSpacing)
-        .attr("x", function (d, i) {
-            return i * yearRectWidth;
-        })
-        .attr("height", daySquareSize)
-        .attr("width", yearRectWidth)
-        .attr("fill", "#ccc");
-    yearGroups.append("text")
-        .attr('class', function (d) {
-            if (d === selectedYear) {
-                return 'yearLabel selected'
-            }
-            return 'yearLabel';
-        })
-        .attr("y", yScale(-3) + 3.6 * calendarGroupSpacing + daySquareSize / 2)
-        .attr("x", function (d, i) {
-            return i * yearRectWidth + yearRectWidth / 2.25;
-        })
-        .text(function (d) {
-            return d;
-        });
-
-    let labelForWeekDay = {0: "M", 1: "T", 2: "W", 3: "T", 4: "F", 5: "S", 6: "S"};
-    let weekdayLabelInfo = [];
-    for (let j = 0; j < 7; j++) {
-        let weekday = 6 - j - 0.75;
-        let week = -1.1;
-        weekdayLabelInfo.push({"week": week, "weekday": weekday, "label": labelForWeekDay[j]});
-    }
-
-    let weekdayText = svgInnerCalendar.selectAll("text.weekdayLabel").data(weekdayLabelInfo);
-
-    weekdayText.enter().append("text")
-        .attr("class", "gridRowLabel")
-        .attr("x", function (d) {
-            return xScale(d.week);
-        })
-        .attr("y", function (d) {
-            return yScale(d.weekday);
-        })
-        .text(function (d) {
-            return d.label.toUpperCase();
-        });
-
+    updateGridYears(years0, updateSelectedDateSpan);
 }
 
 
