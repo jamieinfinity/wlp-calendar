@@ -5237,6 +5237,12 @@ function sum$1(series) {
   return s;
 }
 
+// TODO: Choose color palette
+// https://www.pinterest.com/pin/395261304766413148/
+// https://www.pinterest.com/pin/157485318196050590/
+
+
+
 const prettyDateFormat = timeFormat("%B %e, %Y");
 const monthDateFormat = timeFormat("%b");
 const yearFormat = timeFormat("%Y");
@@ -5245,7 +5251,7 @@ const weekNumForDate = timeFormat("%W");
 const numWeeksMax = 53;
 const numWeekdaysMax = 6;
 const calendarGroupSpacing = 5;
-const calendarMargin = {top: 10, right: 15, bottom: 10, left: 80};
+const calendarMargin = {top: 10, right: 15, bottom: 10, left: 100};
 const calendarSize = {height: 0, width: 0};
 
 let selectedYear = 2017;

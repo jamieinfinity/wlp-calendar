@@ -5,6 +5,16 @@ import {timeDay, timeWeek, timeMonth, timeMonths} from "d3-time";
 import {line, curveLinear} from "d3-shape";
 import {range, max, min} from "d3-array";
 
+// TODO: Choose color palette
+// https://github.com/d3/d3-scale-chromatic
+// https://blog.graphiq.com/finding-the-right-color-palettes-for-data-visualizations-fcd4e707a283
+// http://tristen.ca/hcl-picker/#/clh/12/22/7D3203/FAD7B4
+// http://bl.ocks.org/jfreyre/b1882159636cc9e1283a
+// https://www.pinterest.com/pin/395261304766413148/
+// https://www.pinterest.com/pin/157485318196050590/
+
+
+
 const prettyDateFormat = timeFormat("%B %e, %Y"),
     // dateFormat = timeFormat("%Y-%m-%d"),
     monthDateFormat = timeFormat("%b"),
@@ -14,7 +24,7 @@ const prettyDateFormat = timeFormat("%B %e, %Y"),
     numWeeksMax = 53,
     numWeekdaysMax = 6,
     calendarGroupSpacing = 5,
-    calendarMargin = {top: 10, right: 15, bottom: 10, left: 80},
+    calendarMargin = {top: 10, right: 15, bottom: 10, left: 100},
     calendarSize = {height: 0, width: 0};
 
 let selectedYear = 2017,
