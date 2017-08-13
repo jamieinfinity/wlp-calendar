@@ -3,7 +3,8 @@ import {timeFormat, timeParse} from "d3-time-format";
 import {scaleLinear} from "d3-scale";
 import {timeDay, timeWeek, timeMonth, timeMonths} from "d3-time";
 import {line, curveLinear} from "d3-shape";
-import {range, max, min} from "d3-array";
+import {range, max, min, mean} from "d3-array";
+import {nest} from "d3-collection";
 
 // TODO: Choose color palette
 // https://github.com/d3/d3-scale-chromatic
@@ -15,10 +16,13 @@ import {range, max, min} from "d3-array";
 // TODO: Put date range data in grid data arrays rather than computing in on('click')
 
 const prettyDateFormat = timeFormat("%B %e, %Y"),
-    monthDateFormat = timeFormat("%b"),
-    yearFormat = timeFormat("%Y"),
-    weekdayFormat = timeFormat("%w"), // Sunday = 0
+    monthAbbrevForDate = timeFormat("%b"),
+    weekdayForDate = timeFormat("%w"), // Sunday = 0
+    dayNumForDate = timeFormat("%j"),
     weekNumForDate = timeFormat("%W"),
+    monthNumForDate = timeFormat("%m"),
+    yearNumForDate = timeFormat("%Y"),
+    parseWeek = timeParse('%Y-%W'),
     numWeeksMax = 53,
     numWeekdaysMax = 6,
     calendarGroupSpacing = 5,
@@ -28,11 +32,12 @@ const prettyDateFormat = timeFormat("%B %e, %Y"),
 let selectedYear = 2017,
     dayGridSquareSize,
     dayGridXScale,
-    dayGridYScale;
+    dayGridYScale,
+    measurementData = {};
 
 
 function weekdayNumForDate(date) {
-    const weekday = (Number(weekdayFormat(date)) === 0) ? numWeekdaysMax : Number(weekdayFormat(date)) - 1;
+    const weekday = (Number(weekdayForDate(date)) === 0) ? numWeekdaysMax : Number(weekdayForDate(date)) - 1;
     return 6 - weekday;
 }
 
@@ -41,7 +46,7 @@ function calendarCoodinateForDate(date) {
 }
 
 function addDayEntryToDatasetForDate(dataset, date, steps) {
-    const keyYear = yearFormat(date),
+    const keyYear = yearNumForDate(date),
         entry = calendarCoodinateForDate(date),
         key = keyYear + ":" + entry.week + ":" + entry.weekday;
     entry["steps"] = steps;
@@ -83,7 +88,7 @@ function getMonthGridData(year, monthPathData) {
         monthsData = [],
         prevMaxX = 0;
 
-    monthNames = monthNames.map(d => monthDateFormat(d));
+    monthNames = monthNames.map(d => monthAbbrevForDate(d));
 
     monthPathData.forEach((points, i) => {
         let maxX = -1;
@@ -209,8 +214,7 @@ function updateGridWeeks(year, weeksData, updateSelectedDateSpan) {
         .attr("y", dayGridYScale(-1) + calendarGroupSpacing)
         .attr("x", d => dayGridXScale(d))
         .on("click", function (d) {
-            const parseWeek = timeParse('%Y-%W'),
-                startDate = parseWeek(year + '-' + d),
+            const startDate = parseWeek(year + '-' + d),
                 endDate = timeDay.offset(timeWeek.ceil(startDate), 1);
 
             selectAll('#calendarRootSVG').selectAll('rect.selected').classed('selected', false);
@@ -362,5 +366,37 @@ function makeCalendar(domElementID, width, years0, updateSelectedDateSpan) {
 }
 
 
-export {makeCalendar};
+function getMeasurementDataForPeriod(data, getPeriod) {
+    const rollupData = nest().key(d => getPeriod(d.timestamp))
+            .rollup(d1 => mean(d1, d2 => d2.measurementValue))
+            .entries(data),
+        monthData = {};
+    rollupData.forEach(d => monthData[d['key']] = d['value']);
+    return monthData;
+}
+
+function getMeasurementData(data) {
+    const rollupData = nest().key(d => d.timestamp.getFullYear())
+            .entries(data),
+        measurementData = {};
+    rollupData.forEach(d => {
+        measurementData[d['key']] =
+            {
+                'days': getMeasurementDataForPeriod(d['values'], dayNumForDate),
+                'weeks': getMeasurementDataForPeriod(d['values'], weekNumForDate),
+                'months': getMeasurementDataForPeriod(d['values'], monthNumForDate),
+                'year': getMeasurementDataForPeriod(d['values'], yearNumForDate)
+            };
+    });
+    return measurementData;
+}
+
+
+function updateFeed(feed) {
+    measurementData['measurementMinimum'] = feed.feedInfo.measurementMinimum;
+    measurementData['measurementMaximum'] = feed.feedInfo.measurementMaximum;
+    measurementData['data'] = getMeasurementData(feed.data);
+}
+
+export {makeCalendar, updateFeed};
 

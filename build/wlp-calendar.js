@@ -1952,6 +1952,30 @@ var max = function(values, valueof) {
   return max;
 };
 
+var mean = function(values, valueof) {
+  var n = values.length,
+      m = n,
+      i = -1,
+      value,
+      sum = 0;
+
+  if (valueof == null) {
+    while (++i < n) {
+      if (!isNaN(value = number(values[i]))) sum += value;
+      else --m;
+    }
+  }
+
+  else {
+    while (++i < n) {
+      if (!isNaN(value = number(valueof(values[i], i, values)))) sum += value;
+      else --m;
+    }
+  }
+
+  if (m) return sum / m;
+};
+
 var min = function(values, valueof) {
   var n = values.length,
       i = -1,
@@ -2064,6 +2088,62 @@ function map$1(object, f) {
 
   return map;
 }
+
+var nest = function() {
+  var keys = [],
+      sortKeys = [],
+      sortValues,
+      rollup,
+      nest;
+
+  function apply(array, depth, createResult, setResult) {
+    if (depth >= keys.length) {
+      if (sortValues != null) array.sort(sortValues);
+      return rollup != null ? rollup(array) : array;
+    }
+
+    var i = -1,
+        n = array.length,
+        key = keys[depth++],
+        keyValue,
+        value,
+        valuesByKey = map$1(),
+        values,
+        result = createResult();
+
+    while (++i < n) {
+      if (values = valuesByKey.get(keyValue = key(value = array[i]) + "")) {
+        values.push(value);
+      } else {
+        valuesByKey.set(keyValue, [value]);
+      }
+    }
+
+    valuesByKey.each(function(values, key) {
+      setResult(result, key, apply(values, depth, createResult, setResult));
+    });
+
+    return result;
+  }
+
+  function entries(map, depth) {
+    if (++depth > keys.length) return map;
+    var array, sortKey = sortKeys[depth - 1];
+    if (rollup != null && depth >= keys.length) array = map.entries();
+    else array = [], map.each(function(v, k) { array.push({key: k, values: entries(v, depth)}); });
+    return sortKey != null ? array.sort(function(a, b) { return sortKey(a.key, b.key); }) : array;
+  }
+
+  return nest = {
+    object: function(array) { return apply(array, 0, createObject, setObject); },
+    map: function(array) { return apply(array, 0, createMap, setMap); },
+    entries: function(array) { return entries(apply(array, 0, createMap, setMap), 0); },
+    key: function(d) { keys.push(d); return nest; },
+    sortKeys: function(order) { sortKeys[keys.length - 1] = order; return nest; },
+    sortValues: function(order) { sortValues = order; return nest; },
+    rollup: function(f) { rollup = f; return nest; }
+  };
+};
 
 function createObject() {
   return {};
@@ -5247,10 +5327,13 @@ function sum$1(series) {
 // TODO: Put date range data in grid data arrays rather than computing in on('click')
 
 const prettyDateFormat = timeFormat("%B %e, %Y");
-const monthDateFormat = timeFormat("%b");
-const yearFormat = timeFormat("%Y");
-const weekdayFormat = timeFormat("%w");
+const monthAbbrevForDate = timeFormat("%b");
+const weekdayForDate = timeFormat("%w");
+const dayNumForDate = timeFormat("%j");
 const weekNumForDate = timeFormat("%W");
+const monthNumForDate = timeFormat("%m");
+const yearNumForDate = timeFormat("%Y");
+const parseWeek = timeParse('%Y-%W');
 const numWeeksMax = 53;
 const numWeekdaysMax = 6;
 const calendarGroupSpacing = 5;
@@ -5261,10 +5344,11 @@ let selectedYear = 2017;
 let dayGridSquareSize;
 let dayGridXScale;
 let dayGridYScale;
+let measurementData = {};
 
 
 function weekdayNumForDate(date) {
-    const weekday = (Number(weekdayFormat(date)) === 0) ? numWeekdaysMax : Number(weekdayFormat(date)) - 1;
+    const weekday = (Number(weekdayForDate(date)) === 0) ? numWeekdaysMax : Number(weekdayForDate(date)) - 1;
     return 6 - weekday;
 }
 
@@ -5273,7 +5357,7 @@ function calendarCoodinateForDate(date) {
 }
 
 function addDayEntryToDatasetForDate(dataset, date, steps) {
-    const keyYear = yearFormat(date),
+    const keyYear = yearNumForDate(date),
         entry = calendarCoodinateForDate(date),
         key = keyYear + ":" + entry.week + ":" + entry.weekday;
     entry["steps"] = steps;
@@ -5315,7 +5399,7 @@ function getMonthGridData(year, monthPathData) {
         monthsData = [],
         prevMaxX = 0;
 
-    monthNames = monthNames.map(d => monthDateFormat(d));
+    monthNames = monthNames.map(d => monthAbbrevForDate(d));
 
     monthPathData.forEach((points, i) => {
         let maxX = -1;
@@ -5441,8 +5525,7 @@ function updateGridWeeks(year, weeksData, updateSelectedDateSpan) {
         .attr("y", dayGridYScale(-1) + calendarGroupSpacing)
         .attr("x", d => dayGridXScale(d))
         .on("click", function (d) {
-            const parseWeek = timeParse('%Y-%W'),
-                startDate = parseWeek(year + '-' + d),
+            const startDate = parseWeek(year + '-' + d),
                 endDate = day.offset(sunday.ceil(startDate), 1);
 
             selectAll('#calendarRootSVG').selectAll('rect.selected').classed('selected', false);
@@ -5593,7 +5676,41 @@ function makeCalendar(domElementID, width, years0, updateSelectedDateSpan) {
     updateGridYears(years0, updateSelectedDateSpan);
 }
 
+
+function getMeasurementDataForPeriod(data, getPeriod) {
+    const rollupData = nest().key(d => getPeriod(d.timestamp))
+            .rollup(d1 => mean(d1, d2 => d2.measurementValue))
+            .entries(data),
+        monthData = {};
+    rollupData.forEach(d => monthData[d['key']] = d['value']);
+    return monthData;
+}
+
+function getMeasurementData(data) {
+    const rollupData = nest().key(d => d.timestamp.getFullYear())
+            .entries(data),
+        measurementData = {};
+    rollupData.forEach(d => {
+        measurementData[d['key']] =
+            {
+                'days': getMeasurementDataForPeriod(d['values'], dayNumForDate),
+                'weeks': getMeasurementDataForPeriod(d['values'], weekNumForDate),
+                'months': getMeasurementDataForPeriod(d['values'], monthNumForDate),
+                'year': getMeasurementDataForPeriod(d['values'], yearNumForDate)
+            };
+    });
+    return measurementData;
+}
+
+
+function updateFeed(feed) {
+    measurementData['measurementMinimum'] = feed.feedInfo.measurementMinimum;
+    measurementData['measurementMaximum'] = feed.feedInfo.measurementMaximum;
+    measurementData['data'] = getMeasurementData(feed.data);
+}
+
 exports.makeCalendar = makeCalendar;
+exports.updateFeed = updateFeed;
 
 Object.defineProperty(exports, '__esModule', { value: true });
 

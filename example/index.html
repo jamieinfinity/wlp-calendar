@@ -3,6 +3,7 @@
 <head>
     <title>wlp-calendar</title>
     <script type="text/javascript" src="./build/wlp-calendar.js"></script>
+    <script src="https://d3js.org/d3.v4.min.js"></script>
     <link href="build/wlp-calendar.css" rel="stylesheet" type="text/css"/>
     <style>
         html, body {
@@ -28,6 +29,44 @@
     wlp_calendar.makeCalendar("#rootdiv", 800, [2013, 2017], dateSpan => {
 //         console.log(dateSpan);
     });
+
+    const weightData = [];
+
+    d3.csv('./fitness_data.csv', function (error, data) {
+
+        if (error) {
+            const startDate1 = new Date(2015, 9, 20);
+            for (let i = 0; i < 585; i++) {
+                let d = new Date(startDate1.getTime() + i * 3600 * 24 * 1000);
+                weightData.push(
+                    {
+                        'timestamp': new Date(d.toDateString()),
+                        'measurementValue': 200 * (Math.sin(i / 10.0 + 2 * Math.random()) ** 2)
+                    }
+                );
+            }
+        } else {
+            data.forEach(function (d) {
+                let tempdate = new Date(d['Date']);
+                tempdate.setHours(tempdate.getHours() + 12);
+                let tempdate2 = new Date(tempdate.toString());
+                weightData.push({'timestamp': tempdate2, 'measurementValue': Number(d['Weight'])});
+            });
+        }
+
+        wlp_calendar.updateFeed({
+            'feedInfo': {
+                'feedId': 'weight',
+                'measurementLabel': 'Weight',
+                'measurementTimespan': 1,
+                'measurementMinimum': 160,
+                'measurementMaximum': 185,
+            },
+            'data': weightData,
+        });
+
+    });
+
 
 </script>
 

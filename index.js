@@ -1,1 +1,1 @@
-export { makeCalendar } from './src/js/wlp-calendar';
+export { makeCalendar, updateFeed } from './src/js/wlp-calendar';
