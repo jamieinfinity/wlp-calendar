@@ -1,6 +1,7 @@
 import {select, selectAll} from "d3-selection";
 import {timeFormat, timeParse} from "d3-time-format";
-import {scaleLinear} from "d3-scale";
+import {scaleLinear, scaleSequential} from "d3-scale";
+import {interpolateBlues} from "d3-scale-chromatic";
 import {timeDay, timeWeek, timeMonth, timeMonths} from "d3-time";
 import {line, curveLinear} from "d3-shape";
 import {range, max, min, mean} from "d3-array";
@@ -23,6 +24,7 @@ const prettyDateFormat = timeFormat("%B %e, %Y"),
     monthNumForDate = timeFormat("%m"),
     yearNumForDate = timeFormat("%Y"),
     parseWeek = timeParse('%Y-%W'),
+    colorMap = scaleSequential(interpolateBlues),
     numWeeksMax = 53,
     numWeekdaysMax = 6,
     calendarGroupSpacing = 5,
@@ -33,7 +35,8 @@ let selectedYear = 2017,
     dayGridSquareSize,
     dayGridXScale,
     dayGridYScale,
-    measurementData = {};
+    measurementData = {},
+    updateSelectedDateSpanRef;
 
 
 function weekdayNumForDate(date) {
@@ -45,11 +48,27 @@ function calendarCoodinateForDate(date) {
     return {"week": parseInt(weekNumForDate(date)), "weekday": weekdayNumForDate(date)};
 }
 
-function addDayEntryToDatasetForDate(dataset, date, steps) {
+function getMeasurementValue(year, type, key) {
+    if ('data' in measurementData) {
+        if (year in measurementData['data']) {
+            if (key in measurementData['data'][year][type]) {
+                return measurementData['data'][year][type][key];
+            } else {
+                return null;
+            }
+        } else {
+            return null;
+        }
+    } else {
+        return null;
+    }
+}
+
+function addDayEntryToDatasetForDate(dataset, date) {
     const keyYear = yearNumForDate(date),
         entry = calendarCoodinateForDate(date),
         key = keyYear + ":" + entry.week + ":" + entry.weekday;
-    entry["steps"] = steps;
+    entry["measurement"] = getMeasurementValue(keyYear, 'days', dayNumForDate(date));
     entry["date"] = prettyDateFormat(date);
     dataset[key] = entry;
 }
@@ -117,7 +136,7 @@ function getDaysDictionary(year) {
 
     let dateIter = new Date("1/1/" + year);
     for (let i = 0; i < maxDays; i++) {
-        addDayEntryToDatasetForDate(daysDictionary, dateIter, -1);
+        addDayEntryToDatasetForDate(daysDictionary, dateIter);
         dateIter.setDate(dateIter.getDate() + 1);
     }
     return daysDictionary;
@@ -142,8 +161,10 @@ function updateGridDays(daysData, monthPathData, updateSelectedDateSpan) {
         .attr("class", "day")
         .attr("height", dayGridSquareSize)
         .attr("width", dayGridSquareSize)
-        .attr("fill", "#ccc")
         .merge(daySquares)
+        .attr("fill", d => {
+            return d.measurement ? colorMap(d.measurement) : "#ccc";
+        })
         .attr("y", d => dayGridYScale(d.weekday))
         .attr("x", d => dayGridXScale(d.week))
         .on("click", function (d) {
@@ -290,6 +311,8 @@ function getWeekDayLabelData() {
 }
 
 function makeCalendar(domElementID, width, years0, updateSelectedDateSpan) {
+    updateSelectedDateSpanRef = updateSelectedDateSpan;
+
     selectedYear = max(years0);
     calendarSize.width = width - calendarMargin.left - calendarMargin.right;
     dayGridSquareSize = calendarSize.width / numWeeksMax;
@@ -396,6 +419,10 @@ function updateFeed(feed) {
     measurementData['measurementMinimum'] = feed.feedInfo.measurementMinimum;
     measurementData['measurementMaximum'] = feed.feedInfo.measurementMaximum;
     measurementData['data'] = getMeasurementData(feed.data);
+
+    colorMap.domain([feed.feedInfo.measurementMinimum, feed.feedInfo.measurementMaximum]);
+
+    updateGrid(selectedYear, updateSelectedDateSpanRef);
 }
 
 export {makeCalendar, updateFeed};
