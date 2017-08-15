@@ -68,7 +68,7 @@ function addDayEntryToDatasetForDate(dataset, date) {
     const keyYear = yearNumForDate(date),
         entry = calendarCoodinateForDate(date),
         key = keyYear + ":" + entry.week + ":" + entry.weekday;
-    entry["measurement"] = getMeasurementValue(keyYear, 'days', dayNumForDate(date));
+    entry["measurement"] = getMeasurementValue(keyYear, 'days', parseInt(dayNumForDate(date)));
     entry["date"] = prettyDateFormat(date);
     dataset[key] = entry;
 }
@@ -119,6 +119,7 @@ function getMonthGridData(year, monthPathData) {
             }
         });
         monthsData.push({
+            measurement: getMeasurementValue(year, 'months', i),
             name: monthNames[i],
             x0: prevMaxX,
             width: (i === 11 ? (numWeeksMax - prevMaxX) : (maxX - prevMaxX))
@@ -206,8 +207,10 @@ function updateGridMonths(monthsData, updateSelectedDateSpan) {
     monthGroupsNew.append("rect")
         .attr("class", "month")
         .attr("height", dayGridSquareSize)
-        .attr("fill", "#ccc")
         .merge(monthGroups.select(".month"))
+        .attr("fill", d => {
+            return d.measurement ? colorMap(d.measurement) : "#ccc";
+        })
         .attr("y", dayGridYScale(-2) + 2 * calendarGroupSpacing)
         .attr("x", d => dayGridXScale(d.x0))
         .attr("width", d => dayGridXScale(d.width));
@@ -230,8 +233,11 @@ function updateGridWeeks(year, weeksData, updateSelectedDateSpan) {
         .attr("class", "week")
         .attr("height", dayGridSquareSize)
         .attr("width", dayGridSquareSize)
-        .attr("fill", "#ccc")
         .merge(weekSquares)
+        .attr("fill", d => {
+            const measurement = getMeasurementValue(year, 'weeks', d);
+            return measurement ? colorMap(measurement) : "#ccc";
+        })
         .attr("y", dayGridYScale(-1) + calendarGroupSpacing)
         .attr("x", d => dayGridXScale(d))
         .on("click", function (d) {
@@ -260,10 +266,10 @@ function updateGrid(year, updateSelectedDateSpan) {
 
 function updateGridYears(years, updateSelectedDateSpan) {
     const yearsData = range(min(years), max(years) + 1),
-        yearRectWidth = calendarSize.width / yearsData.length;
-    let yearGroups = select('#calendarInnerSVG').append('g').attr('id', 'calendarYears').selectAll("g").data(yearsData);
+        yearRectWidth = calendarSize.width / yearsData.length,
+        yearGroups = select('#calendarInnerSVG').append('g').attr('id', 'calendarYears').selectAll("g").data(yearsData);
 
-    yearGroups = yearGroups.enter().append("g")
+    let yearGroupsNew = yearGroups.enter().append("g")
         .on("click", function (d) {
             selectedYear = d;
 
@@ -272,6 +278,7 @@ function updateGridYears(years, updateSelectedDateSpan) {
                 endDate = new Date(d + 1, 0, 1, 0, 0, 0);
 
             selectAll('#calendarRootSVG').selectAll('rect.selected').classed('selected', false);
+            selectAll('#calendarRootSVG').selectAll('text.selected').classed('selected', false);
             select('#calendarYears').selectAll('text').attr('class', function (d) {
                 if (d === selectedYear) {
                     return 'yearLabel selected';
@@ -280,22 +287,29 @@ function updateGridYears(years, updateSelectedDateSpan) {
             });
             select(this).select('rect')
                 .classed('selected', true);
+            select(this).select('text')
+                .classed('selected', true);
             this.parentNode.appendChild(this);
 
             updateSelectedDateSpan([startDate, endDate]);
         });
-    yearGroups.append("rect")
+    yearGroupsNew.merge(yearGroups);
+    yearGroupsNew.append("rect")
         .attr("class", "year")
         .attr("y", dayGridYScale(-3) + 3 * calendarGroupSpacing)
         .attr("x", (d, i) => i * yearRectWidth)
         .attr("height", dayGridSquareSize)
         .attr("width", yearRectWidth)
-        .attr("fill", "#ccc");
-    yearGroups.append("text")
-        .attr('class', d => (d === selectedYear) ? 'yearLabel selected' : 'yearLabel')  // TODO: use classed
+        .attr("fill", d => {
+            const measurement = getMeasurementValue(d, 'years', d);
+            return measurement ? colorMap(measurement) : "#ccc";
+        });
+    yearGroupsNew.append("text")
+        .attr('class', d => (d===selectedYear) ? 'yearLabel selected' : 'yearLabel')
         .attr("y", dayGridYScale(-3) + 3.6 * calendarGroupSpacing + dayGridSquareSize / 2)
         .attr("x", (d, i) => i * yearRectWidth + yearRectWidth / 2.25)
         .text(d => d);
+    yearGroups.exit().remove();
 }
 
 function getWeekDayLabelData() {
@@ -390,12 +404,12 @@ function makeCalendar(domElementID, width, years0, updateSelectedDateSpan) {
 
 
 function getMeasurementDataForPeriod(data, getPeriod) {
-    const rollupData = nest().key(d => getPeriod(d.timestamp))
+    const rollupData = nest().key(d => parseInt(getPeriod(d.timestamp)))
             .rollup(d1 => mean(d1, d2 => d2.measurementValue))
             .entries(data),
-        monthData = {};
-    rollupData.forEach(d => monthData[d['key']] = d['value']);
-    return monthData;
+        periodData = {};
+    rollupData.forEach(d => periodData[d['key']] = d['value']);
+    return periodData;
 }
 
 function getMeasurementData(data) {
@@ -407,8 +421,8 @@ function getMeasurementData(data) {
             {
                 'days': getMeasurementDataForPeriod(d['values'], dayNumForDate),
                 'weeks': getMeasurementDataForPeriod(d['values'], weekNumForDate),
-                'months': getMeasurementDataForPeriod(d['values'], monthNumForDate),
-                'year': getMeasurementDataForPeriod(d['values'], yearNumForDate)
+                'months': getMeasurementDataForPeriod(d['values'], d => (monthNumForDate(d) - 1)),
+                'years': getMeasurementDataForPeriod(d['values'], yearNumForDate)
             };
     });
     return measurementData;
@@ -423,6 +437,8 @@ function updateFeed(feed) {
     colorMap.domain([feed.feedInfo.measurementMinimum, feed.feedInfo.measurementMaximum]);
 
     updateGrid(selectedYear, updateSelectedDateSpanRef);
+    let years = Object.keys(measurementData['data']).map(d=>parseInt(d));
+    updateGridYears(years, updateSelectedDateSpanRef);
 }
 
 export {makeCalendar, updateFeed};
