@@ -1,11 +1,13 @@
 import {select, selectAll} from "d3-selection";
 import {timeFormat, timeParse} from "d3-time-format";
+import {format} from "d3-format";
 import {scaleLinear, scaleSequential} from "d3-scale";
 import {interpolateBlues} from "d3-scale-chromatic";
 import {timeDay, timeWeek, timeMonth, timeMonths} from "d3-time";
 import {line, curveLinear} from "d3-shape";
 import {range, max, min, mean} from "d3-array";
 import {nest} from "d3-collection";
+import d3Tip from "d3-tip";
 
 // TODO: Choose color palette
 // https://github.com/d3/d3-scale-chromatic
@@ -39,6 +41,25 @@ let selectedYear = 2017,
     updateSelectedDateSpanRef;
 
 
+function makeTooltipHtmlRowSingleColumn(label, text) {
+    let labelcolon = label === '' ? '' : ':';
+    return '<tr>' +
+        '<td>' + label + labelcolon + '</td>' +
+        '<td colspan="2" class="tabcol1"' + '>' + text + '</td>' +
+        '</tr>';
+}
+
+// eslint-disable-next-line
+const dayTooltip = d3Tip()
+    .attr('class', 'd3-tip')
+    .offset([-10, 0])
+    .html(d => ('' +
+        '<table class="tooltiptable">' +
+        makeTooltipHtmlRowSingleColumn(d.periodLabel, d.period) +
+        makeTooltipHtmlRowSingleColumn('value', d.value > 0. ? d.value : 'Missing') +
+        '</table>')
+    );
+
 function weekdayNumForDate(date) {
     const weekday = (Number(weekdayForDate(date)) === 0) ? numWeekdaysMax : Number(weekdayForDate(date)) - 1;
     return 6 - weekday;
@@ -52,7 +73,9 @@ function getMeasurementValue(year, type, key) {
     if ('data' in measurementData) {
         if (year in measurementData['data']) {
             if (key in measurementData['data'][year][type]) {
-                return measurementData['data'][year][type][key];
+                let val = measurementData['data'][year][type][key];
+                let numFormat = val > 1000 ? ".0f" : ".1f";
+                return format(numFormat)(val);
             } else {
                 return null;
             }
@@ -163,6 +186,12 @@ function updateGridDays(daysData, monthPathData, updateSelectedDateSpan) {
         .attr("height", dayGridSquareSize)
         .attr("width", dayGridSquareSize)
         .merge(daySquares)
+        .on('mouseover', function (d) {
+            return dayTooltip.show({'periodLabel': 'date', 'period': d.date, 'value': d.measurement});
+        })
+        .on('mouseleave', function (d) {
+            return dayTooltip.hide({'periodLabel': 'date', 'period': d.date, 'value': d.measurement});
+        })
         .attr("fill", d => {
             return d.measurement ? colorMap(d.measurement) : "#ccc";
         })
@@ -208,6 +237,20 @@ function updateGridMonths(monthsData, updateSelectedDateSpan) {
         .attr("class", "month")
         .attr("height", dayGridSquareSize)
         .merge(monthGroups.select(".month"))
+        .on('mouseover', function (d) {
+            return dayTooltip.show({
+                'periodLabel': 'month',
+                'period': d.name,
+                'value': d.measurement
+            });
+        })
+        .on('mouseleave', function (d) {
+            return dayTooltip.hide({
+                'periodLabel': 'month',
+                'period': d.name,
+                'value': d.measurement
+            });
+        })
         .attr("fill", d => {
             return d.measurement ? colorMap(d.measurement) : "#ccc";
         })
@@ -234,6 +277,20 @@ function updateGridWeeks(year, weeksData, updateSelectedDateSpan) {
         .attr("height", dayGridSquareSize)
         .attr("width", dayGridSquareSize)
         .merge(weekSquares)
+        .on('mouseover', function (d) {
+            return dayTooltip.show({
+                'periodLabel': 'week',
+                'period': d,
+                'value': getMeasurementValue(year, 'weeks', d)
+            });
+        })
+        .on('mouseleave', function (d) {
+            return dayTooltip.hide({
+                'periodLabel': 'week',
+                'period': d,
+                'value': getMeasurementValue(year, 'weeks', d)
+            });
+        })
         .attr("fill", d => {
             const measurement = getMeasurementValue(year, 'weeks', d);
             return measurement ? colorMap(measurement) : "#ccc";
@@ -296,6 +353,20 @@ function updateGridYears(years, updateSelectedDateSpan) {
     yearGroupsNew.merge(yearGroups);
     yearGroupsNew.append("rect")
         .attr("class", "year")
+        .on('mouseover', function (d) {
+            return dayTooltip.show({
+                'periodLabel': 'year',
+                'period': d,
+                'value': getMeasurementValue(d, 'years', d)
+            });
+        })
+        .on('mouseleave', function (d) {
+            return dayTooltip.hide({
+                'periodLabel': 'year',
+                'period': d,
+                'value': getMeasurementValue(d, 'years', d)
+            });
+        })
         .attr("y", dayGridYScale(-3) + 3 * calendarGroupSpacing)
         .attr("x", (d, i) => i * yearRectWidth)
         .attr("height", dayGridSquareSize)
@@ -305,7 +376,7 @@ function updateGridYears(years, updateSelectedDateSpan) {
             return measurement ? colorMap(measurement) : "#ccc";
         });
     yearGroupsNew.append("text")
-        .attr('class', d => (d===selectedYear) ? 'yearLabel selected' : 'yearLabel')
+        .attr('class', d => (d === selectedYear) ? 'yearLabel selected' : 'yearLabel')
         .attr("y", dayGridYScale(-3) + 3.6 * calendarGroupSpacing + dayGridSquareSize / 2)
         .attr("x", (d, i) => i * yearRectWidth + yearRectWidth / 2.25)
         .text(d => d);
@@ -355,7 +426,8 @@ function makeCalendar(domElementID, width, years0, updateSelectedDateSpan) {
             .attr("height", calendarSize.height)
             .attr("x", calendarMargin.left)
             .attr("y", calendarMargin.top)
-            .attr("viewBox", "0 0 " + calendarSize.width + " " + calendarSize.height),
+            .attr("viewBox", "0 0 " + calendarSize.width + " " + calendarSize.height)
+            .call(dayTooltip),
         weekdayLabelInfo = getWeekDayLabelData(),
         weekdayText = svgInnerCalendar.selectAll("text.weekdayLabel").data(weekdayLabelInfo);
 
@@ -437,7 +509,7 @@ function updateFeed(feed) {
     colorMap.domain([feed.feedInfo.measurementMinimum, feed.feedInfo.measurementMaximum]);
 
     updateGrid(selectedYear, updateSelectedDateSpanRef);
-    let years = Object.keys(measurementData['data']).map(d=>parseInt(d));
+    let years = Object.keys(measurementData['data']).map(d => parseInt(d));
     updateGridYears(years, updateSelectedDateSpanRef);
 }
 
