@@ -4803,6 +4803,184 @@ function sequential(interpolator) {
   return linearish(scale);
 }
 
+var slice$2 = Array.prototype.slice;
+
+var identity$4 = function(x) {
+  return x;
+};
+
+var top = 1;
+var right = 2;
+var bottom = 3;
+var left = 4;
+var epsilon = 1e-6;
+
+function translateX(x) {
+  return "translate(" + (x + 0.5) + ",0)";
+}
+
+function translateY(y) {
+  return "translate(0," + (y + 0.5) + ")";
+}
+
+function number$3(scale) {
+  return function(d) {
+    return +scale(d);
+  };
+}
+
+function center(scale) {
+  var offset = Math.max(0, scale.bandwidth() - 1) / 2; // Adjust for 0.5px offset.
+  if (scale.round()) offset = Math.round(offset);
+  return function(d) {
+    return +scale(d) + offset;
+  };
+}
+
+function entering() {
+  return !this.__axis;
+}
+
+function axis(orient, scale) {
+  var tickArguments = [],
+      tickValues = null,
+      tickFormat = null,
+      tickSizeInner = 6,
+      tickSizeOuter = 6,
+      tickPadding = 3,
+      k = orient === top || orient === left ? -1 : 1,
+      x = orient === left || orient === right ? "x" : "y",
+      transform = orient === top || orient === bottom ? translateX : translateY;
+
+  function axis(context) {
+    var values = tickValues == null ? (scale.ticks ? scale.ticks.apply(scale, tickArguments) : scale.domain()) : tickValues,
+        format = tickFormat == null ? (scale.tickFormat ? scale.tickFormat.apply(scale, tickArguments) : identity$4) : tickFormat,
+        spacing = Math.max(tickSizeInner, 0) + tickPadding,
+        range = scale.range(),
+        range0 = +range[0] + 0.5,
+        range1 = +range[range.length - 1] + 0.5,
+        position = (scale.bandwidth ? center : number$3)(scale.copy()),
+        selection = context.selection ? context.selection() : context,
+        path = selection.selectAll(".domain").data([null]),
+        tick = selection.selectAll(".tick").data(values, scale).order(),
+        tickExit = tick.exit(),
+        tickEnter = tick.enter().append("g").attr("class", "tick"),
+        line = tick.select("line"),
+        text = tick.select("text");
+
+    path = path.merge(path.enter().insert("path", ".tick")
+        .attr("class", "domain")
+        .attr("stroke", "#000"));
+
+    tick = tick.merge(tickEnter);
+
+    line = line.merge(tickEnter.append("line")
+        .attr("stroke", "#000")
+        .attr(x + "2", k * tickSizeInner));
+
+    text = text.merge(tickEnter.append("text")
+        .attr("fill", "#000")
+        .attr(x, k * spacing)
+        .attr("dy", orient === top ? "0em" : orient === bottom ? "0.71em" : "0.32em"));
+
+    if (context !== selection) {
+      path = path.transition(context);
+      tick = tick.transition(context);
+      line = line.transition(context);
+      text = text.transition(context);
+
+      tickExit = tickExit.transition(context)
+          .attr("opacity", epsilon)
+          .attr("transform", function(d) { return isFinite(d = position(d)) ? transform(d) : this.getAttribute("transform"); });
+
+      tickEnter
+          .attr("opacity", epsilon)
+          .attr("transform", function(d) { var p = this.parentNode.__axis; return transform(p && isFinite(p = p(d)) ? p : position(d)); });
+    }
+
+    tickExit.remove();
+
+    path
+        .attr("d", orient === left || orient == right
+            ? "M" + k * tickSizeOuter + "," + range0 + "H0.5V" + range1 + "H" + k * tickSizeOuter
+            : "M" + range0 + "," + k * tickSizeOuter + "V0.5H" + range1 + "V" + k * tickSizeOuter);
+
+    tick
+        .attr("opacity", 1)
+        .attr("transform", function(d) { return transform(position(d)); });
+
+    line
+        .attr(x + "2", k * tickSizeInner);
+
+    text
+        .attr(x, k * spacing)
+        .text(format);
+
+    selection.filter(entering)
+        .attr("fill", "none")
+        .attr("font-size", 10)
+        .attr("font-family", "sans-serif")
+        .attr("text-anchor", orient === right ? "start" : orient === left ? "end" : "middle");
+
+    selection
+        .each(function() { this.__axis = position; });
+  }
+
+  axis.scale = function(_) {
+    return arguments.length ? (scale = _, axis) : scale;
+  };
+
+  axis.ticks = function() {
+    return tickArguments = slice$2.call(arguments), axis;
+  };
+
+  axis.tickArguments = function(_) {
+    return arguments.length ? (tickArguments = _ == null ? [] : slice$2.call(_), axis) : tickArguments.slice();
+  };
+
+  axis.tickValues = function(_) {
+    return arguments.length ? (tickValues = _ == null ? null : slice$2.call(_), axis) : tickValues && tickValues.slice();
+  };
+
+  axis.tickFormat = function(_) {
+    return arguments.length ? (tickFormat = _, axis) : tickFormat;
+  };
+
+  axis.tickSize = function(_) {
+    return arguments.length ? (tickSizeInner = tickSizeOuter = +_, axis) : tickSizeInner;
+  };
+
+  axis.tickSizeInner = function(_) {
+    return arguments.length ? (tickSizeInner = +_, axis) : tickSizeInner;
+  };
+
+  axis.tickSizeOuter = function(_) {
+    return arguments.length ? (tickSizeOuter = +_, axis) : tickSizeOuter;
+  };
+
+  axis.tickPadding = function(_) {
+    return arguments.length ? (tickPadding = +_, axis) : tickPadding;
+  };
+
+  return axis;
+}
+
+function axisTop(scale) {
+  return axis(top, scale);
+}
+
+function axisRight(scale) {
+  return axis(right, scale);
+}
+
+function axisBottom(scale) {
+  return axis(bottom, scale);
+}
+
+function axisLeft(scale) {
+  return axis(left, scale);
+}
+
 var colors$1 = function(specifier) {
   var n = specifier.length / 6 | 0, colors = new Array(n), i = 0;
   while (i < n) colors[i] = "#" + specifier.slice(i * 6, ++i * 6);
@@ -5173,8 +5351,8 @@ ramp$1(scheme$26);
 
 var pi = Math.PI;
 var tau = 2 * pi;
-var epsilon = 1e-6;
-var tauEpsilon = tau - epsilon;
+var epsilon$1 = 1e-6;
+var tauEpsilon = tau - epsilon$1;
 
 function Path() {
   this._x0 = this._y0 = // start of current subpath
@@ -5225,12 +5403,12 @@ Path.prototype = path.prototype = {
     }
 
     // Or, is (x1,y1) coincident with (x0,y0)? Do nothing.
-    else if (!(l01_2 > epsilon)) {}
+    else if (!(l01_2 > epsilon$1)) {}
 
     // Or, are (x0,y0), (x1,y1) and (x2,y2) collinear?
     // Equivalently, is (x1,y1) coincident with (x2,y2)?
     // Or, is the radius zero? Line to (x1,y1).
-    else if (!(Math.abs(y01 * x21 - y21 * x01) > epsilon) || !r) {
+    else if (!(Math.abs(y01 * x21 - y21 * x01) > epsilon$1) || !r) {
       this._ += "L" + (this._x1 = x1) + "," + (this._y1 = y1);
     }
 
@@ -5247,7 +5425,7 @@ Path.prototype = path.prototype = {
           t21 = l / l21;
 
       // If the start tangent is not coincident with (x0,y0), line to.
-      if (Math.abs(t01 - 1) > epsilon) {
+      if (Math.abs(t01 - 1) > epsilon$1) {
         this._ += "L" + (x1 + t01 * x01) + "," + (y1 + t01 * y01);
       }
 
@@ -5272,7 +5450,7 @@ Path.prototype = path.prototype = {
     }
 
     // Or, is (x0,y0) not coincident with the previous point? Line to (x0,y0).
-    else if (Math.abs(this._x1 - x0) > epsilon || Math.abs(this._y1 - y0) > epsilon) {
+    else if (Math.abs(this._x1 - x0) > epsilon$1 || Math.abs(this._y1 - y0) > epsilon$1) {
       this._ += "L" + x0 + "," + y0;
     }
 
@@ -5288,7 +5466,7 @@ Path.prototype = path.prototype = {
     }
 
     // Is this arc non-empty? Draw an arc!
-    else if (da > epsilon) {
+    else if (da > epsilon$1) {
       this._ += "A" + r + "," + r + ",0," + (+(da >= pi)) + "," + cw + "," + (this._x1 = x + r * Math.cos(a1)) + "," + (this._y1 = y + r * Math.sin(a1));
     }
   },
@@ -5314,7 +5492,7 @@ var min$1 = Math.min;
 var sin = Math.sin;
 var sqrt$1 = Math.sqrt;
 
-var epsilon$1 = 1e-12;
+var epsilon$2 = 1e-12;
 var pi$1 = Math.PI;
 var halfPi = pi$1 / 2;
 var tau$1 = 2 * pi$1;
@@ -5423,13 +5601,13 @@ var arc = function() {
     if (r1 < r0) r = r1, r1 = r0, r0 = r;
 
     // Is it a point?
-    if (!(r1 > epsilon$1)) context.moveTo(0, 0);
+    if (!(r1 > epsilon$2)) context.moveTo(0, 0);
 
     // Or is it a circle or annulus?
-    else if (da > tau$1 - epsilon$1) {
+    else if (da > tau$1 - epsilon$2) {
       context.moveTo(r1 * cos(a0), r1 * sin(a0));
       context.arc(0, 0, r1, a0, a1, !cw);
-      if (r0 > epsilon$1) {
+      if (r0 > epsilon$2) {
         context.moveTo(r0 * cos(a1), r0 * sin(a1));
         context.arc(0, 0, r0, a1, a0, cw);
       }
@@ -5444,7 +5622,7 @@ var arc = function() {
           da0 = da,
           da1 = da,
           ap = padAngle.apply(this, arguments) / 2,
-          rp = (ap > epsilon$1) && (padRadius ? +padRadius.apply(this, arguments) : sqrt$1(r0 * r0 + r1 * r1)),
+          rp = (ap > epsilon$2) && (padRadius ? +padRadius.apply(this, arguments) : sqrt$1(r0 * r0 + r1 * r1)),
           rc = min$1(abs(r1 - r0) / 2, +cornerRadius.apply(this, arguments)),
           rc0 = rc,
           rc1 = rc,
@@ -5452,12 +5630,12 @@ var arc = function() {
           t1;
 
       // Apply padding? Note that since r1 ≥ r0, da1 ≥ da0.
-      if (rp > epsilon$1) {
+      if (rp > epsilon$2) {
         var p0 = asin(rp / r0 * sin(ap)),
             p1 = asin(rp / r1 * sin(ap));
-        if ((da0 -= p0 * 2) > epsilon$1) p0 *= (cw ? 1 : -1), a00 += p0, a10 -= p0;
+        if ((da0 -= p0 * 2) > epsilon$2) p0 *= (cw ? 1 : -1), a00 += p0, a10 -= p0;
         else da0 = 0, a00 = a10 = (a0 + a1) / 2;
-        if ((da1 -= p1 * 2) > epsilon$1) p1 *= (cw ? 1 : -1), a01 += p1, a11 -= p1;
+        if ((da1 -= p1 * 2) > epsilon$2) p1 *= (cw ? 1 : -1), a01 += p1, a11 -= p1;
         else da1 = 0, a01 = a11 = (a0 + a1) / 2;
       }
 
@@ -5467,7 +5645,7 @@ var arc = function() {
           y10 = r0 * sin(a10);
 
       // Apply rounded corners?
-      if (rc > epsilon$1) {
+      if (rc > epsilon$2) {
         var x11 = r1 * cos(a11),
             y11 = r1 * sin(a11),
             x00 = r0 * cos(a00),
@@ -5475,7 +5653,7 @@ var arc = function() {
 
         // Restrict the corner radius according to the sector angle.
         if (da < pi$1) {
-          var oc = da0 > epsilon$1 ? intersect(x01, y01, x00, y00, x11, y11, x10, y10) : [x10, y10],
+          var oc = da0 > epsilon$2 ? intersect(x01, y01, x00, y00, x11, y11, x10, y10) : [x10, y10],
               ax = x01 - oc[0],
               ay = y01 - oc[1],
               bx = x11 - oc[0],
@@ -5488,10 +5666,10 @@ var arc = function() {
       }
 
       // Is the sector collapsed to a line?
-      if (!(da1 > epsilon$1)) context.moveTo(x01, y01);
+      if (!(da1 > epsilon$2)) context.moveTo(x01, y01);
 
       // Does the sector’s outer ring have rounded corners?
-      else if (rc1 > epsilon$1) {
+      else if (rc1 > epsilon$2) {
         t0 = cornerTangents(x00, y00, x01, y01, r1, rc1, cw);
         t1 = cornerTangents(x11, y11, x10, y10, r1, rc1, cw);
 
@@ -5513,10 +5691,10 @@ var arc = function() {
 
       // Is there no inner ring, and it’s a circular sector?
       // Or perhaps it’s an annular sector collapsed due to padding?
-      if (!(r0 > epsilon$1) || !(da0 > epsilon$1)) context.lineTo(x10, y10);
+      if (!(r0 > epsilon$2) || !(da0 > epsilon$2)) context.lineTo(x10, y10);
 
       // Does the sector’s inner ring (or point) have rounded corners?
-      else if (rc0 > epsilon$1) {
+      else if (rc0 > epsilon$2) {
         t0 = cornerTangents(x10, y10, x11, y11, r0, -rc0, cw);
         t1 = cornerTangents(x01, y01, x00, y00, r0, -rc0, cw);
 
@@ -5782,12 +5960,12 @@ var descending$1 = function(a, b) {
   return b < a ? -1 : b > a ? 1 : b >= a ? 0 : NaN;
 };
 
-var identity$4 = function(d) {
+var identity$5 = function(d) {
   return d;
 };
 
 var pie = function() {
-  var value = identity$4,
+  var value = identity$5,
       sortValues = descending$1,
       sort = null,
       startAngle = constant$5(0),
@@ -5943,7 +6121,7 @@ var pointRadial = function(x, y) {
   return [(y = +y) * Math.cos(x -= Math.PI / 2), y * Math.sin(x)];
 };
 
-var slice$2 = Array.prototype.slice;
+var slice$3 = Array.prototype.slice;
 
 function linkSource(d) {
   return d.source;
@@ -5961,7 +6139,7 @@ function link(curve) {
       context = null;
 
   function link() {
-    var buffer, argv = slice$2.call(arguments), s = source.apply(this, argv), t = target.apply(this, argv);
+    var buffer, argv = slice$3.call(arguments), s = source.apply(this, argv), t = target.apply(this, argv);
     if (!context) context = buffer = path();
     curve(context, +x$$1.apply(this, (argv[0] = s, argv)), +y$$1.apply(this, argv), +x$$1.apply(this, (argv[0] = t, argv)), +y$$1.apply(this, argv));
     if (buffer) return context = null, buffer + "" || null;
@@ -6545,14 +6723,14 @@ function point$4(that, x, y) {
       x2 = that._x2,
       y2 = that._y2;
 
-  if (that._l01_a > epsilon$1) {
+  if (that._l01_a > epsilon$2) {
     var a = 2 * that._l01_2a + 3 * that._l01_a * that._l12_a + that._l12_2a,
         n = 3 * that._l01_a * (that._l01_a + that._l12_a);
     x1 = (x1 * a - that._x0 * that._l12_2a + that._x2 * that._l01_2a) / n;
     y1 = (y1 * a - that._y0 * that._l12_2a + that._y2 * that._l01_2a) / n;
   }
 
-  if (that._l23_a > epsilon$1) {
+  if (that._l23_a > epsilon$2) {
     var b = 2 * that._l23_2a + 3 * that._l23_a * that._l12_a + that._l12_2a,
         m = 3 * that._l23_a * (that._l23_a + that._l12_a);
     x2 = (x2 * b + that._x1 * that._l23_2a - x * that._l12_2a) / m;
@@ -7056,7 +7234,7 @@ var stack = function() {
   }
 
   stack.keys = function(_) {
-    return arguments.length ? (keys = typeof _ === "function" ? _ : constant$5(slice$2.call(_)), stack) : keys;
+    return arguments.length ? (keys = typeof _ === "function" ? _ : constant$5(slice$3.call(_)), stack) : keys;
   };
 
   stack.value = function(_) {
@@ -7064,7 +7242,7 @@ var stack = function() {
   };
 
   stack.order = function(_) {
-    return arguments.length ? (order = _ == null ? none$2 : typeof _ === "function" ? _ : constant$5(slice$2.call(_)), stack) : order;
+    return arguments.length ? (order = _ == null ? none$2 : typeof _ === "function" ? _ : constant$5(slice$3.call(_)), stack) : order;
   };
 
   stack.offset = function(_) {
@@ -7185,184 +7363,6 @@ function createCommonjsModule(fn, module) {
 }
 
 var version = "4.10.0";
-
-var slice$3 = Array.prototype.slice;
-
-var identity$5 = function(x) {
-  return x;
-};
-
-var top = 1;
-var right = 2;
-var bottom = 3;
-var left = 4;
-var epsilon$2 = 1e-6;
-
-function translateX(x) {
-  return "translate(" + (x + 0.5) + ",0)";
-}
-
-function translateY(y) {
-  return "translate(0," + (y + 0.5) + ")";
-}
-
-function number$3(scale) {
-  return function(d) {
-    return +scale(d);
-  };
-}
-
-function center(scale) {
-  var offset = Math.max(0, scale.bandwidth() - 1) / 2; // Adjust for 0.5px offset.
-  if (scale.round()) offset = Math.round(offset);
-  return function(d) {
-    return +scale(d) + offset;
-  };
-}
-
-function entering() {
-  return !this.__axis;
-}
-
-function axis(orient, scale) {
-  var tickArguments = [],
-      tickValues = null,
-      tickFormat = null,
-      tickSizeInner = 6,
-      tickSizeOuter = 6,
-      tickPadding = 3,
-      k = orient === top || orient === left ? -1 : 1,
-      x = orient === left || orient === right ? "x" : "y",
-      transform = orient === top || orient === bottom ? translateX : translateY;
-
-  function axis(context) {
-    var values = tickValues == null ? (scale.ticks ? scale.ticks.apply(scale, tickArguments) : scale.domain()) : tickValues,
-        format = tickFormat == null ? (scale.tickFormat ? scale.tickFormat.apply(scale, tickArguments) : identity$5) : tickFormat,
-        spacing = Math.max(tickSizeInner, 0) + tickPadding,
-        range = scale.range(),
-        range0 = +range[0] + 0.5,
-        range1 = +range[range.length - 1] + 0.5,
-        position = (scale.bandwidth ? center : number$3)(scale.copy()),
-        selection = context.selection ? context.selection() : context,
-        path = selection.selectAll(".domain").data([null]),
-        tick = selection.selectAll(".tick").data(values, scale).order(),
-        tickExit = tick.exit(),
-        tickEnter = tick.enter().append("g").attr("class", "tick"),
-        line = tick.select("line"),
-        text = tick.select("text");
-
-    path = path.merge(path.enter().insert("path", ".tick")
-        .attr("class", "domain")
-        .attr("stroke", "#000"));
-
-    tick = tick.merge(tickEnter);
-
-    line = line.merge(tickEnter.append("line")
-        .attr("stroke", "#000")
-        .attr(x + "2", k * tickSizeInner));
-
-    text = text.merge(tickEnter.append("text")
-        .attr("fill", "#000")
-        .attr(x, k * spacing)
-        .attr("dy", orient === top ? "0em" : orient === bottom ? "0.71em" : "0.32em"));
-
-    if (context !== selection) {
-      path = path.transition(context);
-      tick = tick.transition(context);
-      line = line.transition(context);
-      text = text.transition(context);
-
-      tickExit = tickExit.transition(context)
-          .attr("opacity", epsilon$2)
-          .attr("transform", function(d) { return isFinite(d = position(d)) ? transform(d) : this.getAttribute("transform"); });
-
-      tickEnter
-          .attr("opacity", epsilon$2)
-          .attr("transform", function(d) { var p = this.parentNode.__axis; return transform(p && isFinite(p = p(d)) ? p : position(d)); });
-    }
-
-    tickExit.remove();
-
-    path
-        .attr("d", orient === left || orient == right
-            ? "M" + k * tickSizeOuter + "," + range0 + "H0.5V" + range1 + "H" + k * tickSizeOuter
-            : "M" + range0 + "," + k * tickSizeOuter + "V0.5H" + range1 + "V" + k * tickSizeOuter);
-
-    tick
-        .attr("opacity", 1)
-        .attr("transform", function(d) { return transform(position(d)); });
-
-    line
-        .attr(x + "2", k * tickSizeInner);
-
-    text
-        .attr(x, k * spacing)
-        .text(format);
-
-    selection.filter(entering)
-        .attr("fill", "none")
-        .attr("font-size", 10)
-        .attr("font-family", "sans-serif")
-        .attr("text-anchor", orient === right ? "start" : orient === left ? "end" : "middle");
-
-    selection
-        .each(function() { this.__axis = position; });
-  }
-
-  axis.scale = function(_) {
-    return arguments.length ? (scale = _, axis) : scale;
-  };
-
-  axis.ticks = function() {
-    return tickArguments = slice$3.call(arguments), axis;
-  };
-
-  axis.tickArguments = function(_) {
-    return arguments.length ? (tickArguments = _ == null ? [] : slice$3.call(_), axis) : tickArguments.slice();
-  };
-
-  axis.tickValues = function(_) {
-    return arguments.length ? (tickValues = _ == null ? null : slice$3.call(_), axis) : tickValues && tickValues.slice();
-  };
-
-  axis.tickFormat = function(_) {
-    return arguments.length ? (tickFormat = _, axis) : tickFormat;
-  };
-
-  axis.tickSize = function(_) {
-    return arguments.length ? (tickSizeInner = tickSizeOuter = +_, axis) : tickSizeInner;
-  };
-
-  axis.tickSizeInner = function(_) {
-    return arguments.length ? (tickSizeInner = +_, axis) : tickSizeInner;
-  };
-
-  axis.tickSizeOuter = function(_) {
-    return arguments.length ? (tickSizeOuter = +_, axis) : tickSizeOuter;
-  };
-
-  axis.tickPadding = function(_) {
-    return arguments.length ? (tickPadding = +_, axis) : tickPadding;
-  };
-
-  return axis;
-}
-
-function axisTop(scale) {
-  return axis(top, scale);
-}
-
-function axisRight(scale) {
-  return axis(right, scale);
-}
-
-function axisBottom(scale) {
-  return axis(bottom, scale);
-}
-
-function axisLeft(scale) {
-  return axis(left, scale);
-}
 
 var noop$1 = {value: function() {}};
 
@@ -17642,8 +17642,10 @@ const colorMap = sequential(interpolateBlues);
 const numWeeksMax = 53;
 const numWeekdaysMax = 6;
 const calendarGroupSpacing = 5;
-const calendarMargin = {top: 10, right: 15, bottom: 10, left: 100};
+const calendarMargin = {top: 10, right: 10, bottom: 10, left: 100};
 const calendarSize = {height: 0, width: 0};
+const colorLegendSize = {height: 0, width: 0};
+const colorLegendMarginRight = 30;
 
 let selectedYear = 2017;
 let dayGridSquareSize;
@@ -18014,6 +18016,8 @@ function makeCalendar(domElementID, width, years0, updateSelectedDateSpan) {
     calendarSize.width = width - calendarMargin.left - calendarMargin.right;
     dayGridSquareSize = calendarSize.width / numWeeksMax;
     calendarSize.height = dayGridSquareSize * (numWeekdaysMax + 1) + 3 * (dayGridSquareSize + calendarGroupSpacing);
+    colorLegendSize.width = dayGridSquareSize * 0.75;
+    colorLegendSize.height = calendarSize.height;
     dayGridXScale = linear().domain([0, numWeeksMax]).range([0, numWeeksMax * dayGridSquareSize]);
     dayGridYScale = linear()
         .domain([0, numWeekdaysMax])
@@ -18025,7 +18029,7 @@ function makeCalendar(domElementID, width, years0, updateSelectedDateSpan) {
             .attr("id", "calendarRootDiv"),
         svgRootCalendar = root.append("svg")
             .attr("id", "calendarRootSVG")
-            .attr("width", calendarSize.width + calendarMargin.left + calendarMargin.right)
+            .attr("width", calendarSize.width + calendarMargin.left + calendarMargin.right + colorLegendSize.width + colorLegendMarginRight)
             .attr("height", calendarSize.height + calendarMargin.top + calendarMargin.bottom),
         svgOuterCalendar = svgRootCalendar.append("g")
             .attr("id", "calendarOuterSVG")
@@ -18042,6 +18046,9 @@ function makeCalendar(domElementID, width, years0, updateSelectedDateSpan) {
             .call(dayTooltip),
         weekdayLabelInfo = getWeekDayLabelData(),
         weekdayText = svgInnerCalendar.selectAll("text.weekdayLabel").data(weekdayLabelInfo);
+
+    svgRootCalendar.append("defs").append("linearGradient")
+        .attr("id", "colorLegendGradient");
 
     svgOuterCalendar.append("rect")
         .attr("id", "outerCalendarBackground")
@@ -18084,6 +18091,7 @@ function makeCalendar(domElementID, width, years0, updateSelectedDateSpan) {
         .text("Y");
 
     updateGridYears(years0, updateSelectedDateSpan);
+
 }
 
 
@@ -18118,11 +18126,49 @@ function updateFeed(feed) {
     measurementData['measurementMaximum'] = feed.feedInfo.measurementMaximum;
     measurementData['data'] = getMeasurementData(feed.data);
 
+    let years = Object.keys(measurementData['data']).map(d => parseInt(d)),
+        numStops = 10,
+        colorStops = range(measurementData['measurementMaximum'] * 1.00001, measurementData['measurementMinimum'], -(measurementData['measurementMaximum'] - measurementData['measurementMinimum']) / (numStops - 1.)),
+        measurementScale = linear().range([colorLegendSize.height, 0]).domain([measurementData['measurementMinimum'], measurementData['measurementMaximum']]),
+        axisSettings = axisRight(measurementScale)
+            .tickSize(colorLegendSize.width)
+            .tickFormat(format('.0f'))
+            .ticks(5)
+            .tickPadding(5);
+
     colorMap.domain([feed.feedInfo.measurementMinimum, feed.feedInfo.measurementMaximum]);
 
     updateGrid(selectedYear, updateSelectedDateSpanRef);
-    let years = Object.keys(measurementData['data']).map(d => parseInt(d));
     updateGridYears(years, updateSelectedDateSpanRef);
+
+    select('#colorLegendGradient')
+        .attr("x1", "100%")
+        .attr("y1", "0%")
+        .attr("x2", "100%")
+        .attr("y2", "100%")
+        .attr("spreadMethod", "pad")
+        .selectAll('stop')
+        .data(colorStops)
+        .enter().append('stop')
+        .attr('offset', (d, i) => i / (numStops - 1))
+        .attr('stop-color', d => colorMap(d));
+
+    select('#colorLegend').selectAll("*").remove();
+
+    select('#calendarRootSVG').append('g')
+        .attr('id', 'colorLegend')
+        .attr("transform", "translate(" + (calendarMargin.left + calendarSize.width + calendarMargin.right) + "," + calendarMargin.top + ")")
+        .append('rect')
+        .attr('stroke', '#ccc')
+        .attr('stroke-width', 1)
+        .attr('width', colorLegendSize.width)
+        .attr('height', colorLegendSize.height)
+        .style("fill", "url(#colorLegendGradient)");
+
+    select('#colorLegend').append("g")
+        .attr("class", "axis-y")
+        .attr("transform", "translate(0,0)")
+        .call(axisSettings);
 }
 
 exports.makeCalendar = makeCalendar;

@@ -95,6 +95,17 @@
     stroke:#ffd877;
 }
 
+.axis-y path,
+.axis-y line {
+    /*fill: none;*/
+    stroke-width: 1;
+    stroke: #ccc;
+}
+.axis-y text {
+    fill: #aaa;
+    font-size: 9px;
+}
+
 
 td.tabcol1 {
     padding-left: 5px;

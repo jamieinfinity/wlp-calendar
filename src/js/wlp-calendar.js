@@ -2,10 +2,11 @@ import {select, selectAll} from "d3-selection";
 import {timeFormat, timeParse} from "d3-time-format";
 import {format} from "d3-format";
 import {scaleLinear, scaleSequential} from "d3-scale";
+import {axisRight} from "d3-axis";
 import {interpolateBlues} from "d3-scale-chromatic";
 import {timeDay, timeWeek, timeMonth, timeMonths} from "d3-time";
 import {line, curveLinear} from "d3-shape";
-import {range, max, min, mean} from "d3-array";
+import {range, max, min, mean, range as d3Range} from "d3-array";
 import {nest} from "d3-collection";
 import d3Tip from "d3-tip";
 
@@ -30,8 +31,10 @@ const prettyDateFormat = timeFormat("%B %e, %Y"),
     numWeeksMax = 53,
     numWeekdaysMax = 6,
     calendarGroupSpacing = 5,
-    calendarMargin = {top: 10, right: 15, bottom: 10, left: 100},
-    calendarSize = {height: 0, width: 0};
+    calendarMargin = {top: 10, right: 10, bottom: 10, left: 100},
+    calendarSize = {height: 0, width: 0},
+    colorLegendSize = {height: 0, width: 0},
+    colorLegendMarginRight = 30;
 
 let selectedYear = 2017,
     dayGridSquareSize,
@@ -402,6 +405,8 @@ function makeCalendar(domElementID, width, years0, updateSelectedDateSpan) {
     calendarSize.width = width - calendarMargin.left - calendarMargin.right;
     dayGridSquareSize = calendarSize.width / numWeeksMax;
     calendarSize.height = dayGridSquareSize * (numWeekdaysMax + 1) + 3 * (dayGridSquareSize + calendarGroupSpacing);
+    colorLegendSize.width = dayGridSquareSize * 0.75;
+    colorLegendSize.height = calendarSize.height;
     dayGridXScale = scaleLinear().domain([0, numWeeksMax]).range([0, numWeeksMax * dayGridSquareSize]);
     dayGridYScale = scaleLinear()
         .domain([0, numWeekdaysMax])
@@ -413,7 +418,7 @@ function makeCalendar(domElementID, width, years0, updateSelectedDateSpan) {
             .attr("id", "calendarRootDiv"),
         svgRootCalendar = root.append("svg")
             .attr("id", "calendarRootSVG")
-            .attr("width", calendarSize.width + calendarMargin.left + calendarMargin.right)
+            .attr("width", calendarSize.width + calendarMargin.left + calendarMargin.right + colorLegendSize.width + colorLegendMarginRight)
             .attr("height", calendarSize.height + calendarMargin.top + calendarMargin.bottom),
         svgOuterCalendar = svgRootCalendar.append("g")
             .attr("id", "calendarOuterSVG")
@@ -430,6 +435,9 @@ function makeCalendar(domElementID, width, years0, updateSelectedDateSpan) {
             .call(dayTooltip),
         weekdayLabelInfo = getWeekDayLabelData(),
         weekdayText = svgInnerCalendar.selectAll("text.weekdayLabel").data(weekdayLabelInfo);
+
+    svgRootCalendar.append("defs").append("linearGradient")
+        .attr("id", "colorLegendGradient");
 
     svgOuterCalendar.append("rect")
         .attr("id", "outerCalendarBackground")
@@ -472,6 +480,7 @@ function makeCalendar(domElementID, width, years0, updateSelectedDateSpan) {
         .text("Y");
 
     updateGridYears(years0, updateSelectedDateSpan);
+
 }
 
 
@@ -506,11 +515,49 @@ function updateFeed(feed) {
     measurementData['measurementMaximum'] = feed.feedInfo.measurementMaximum;
     measurementData['data'] = getMeasurementData(feed.data);
 
+    let years = Object.keys(measurementData['data']).map(d => parseInt(d)),
+        numStops = 10,
+        colorStops = d3Range(measurementData['measurementMaximum'] * 1.00001, measurementData['measurementMinimum'], -(measurementData['measurementMaximum'] - measurementData['measurementMinimum']) / (numStops - 1.)),
+        measurementScale = scaleLinear().range([colorLegendSize.height, 0]).domain([measurementData['measurementMinimum'], measurementData['measurementMaximum']]),
+        axisSettings = axisRight(measurementScale)
+            .tickSize(colorLegendSize.width)
+            .tickFormat(format('.0f'))
+            .ticks(5)
+            .tickPadding(5);
+
     colorMap.domain([feed.feedInfo.measurementMinimum, feed.feedInfo.measurementMaximum]);
 
     updateGrid(selectedYear, updateSelectedDateSpanRef);
-    let years = Object.keys(measurementData['data']).map(d => parseInt(d));
     updateGridYears(years, updateSelectedDateSpanRef);
+
+    select('#colorLegendGradient')
+        .attr("x1", "100%")
+        .attr("y1", "0%")
+        .attr("x2", "100%")
+        .attr("y2", "100%")
+        .attr("spreadMethod", "pad")
+        .selectAll('stop')
+        .data(colorStops)
+        .enter().append('stop')
+        .attr('offset', (d, i) => i / (numStops - 1))
+        .attr('stop-color', d => colorMap(d));
+
+    select('#colorLegend').selectAll("*").remove();
+
+    select('#calendarRootSVG').append('g')
+        .attr('id', 'colorLegend')
+        .attr("transform", "translate(" + (calendarMargin.left + calendarSize.width + calendarMargin.right) + "," + calendarMargin.top + ")")
+        .append('rect')
+        .attr('stroke', '#ccc')
+        .attr('stroke-width', 1)
+        .attr('width', colorLegendSize.width)
+        .attr('height', colorLegendSize.height)
+        .style("fill", "url(#colorLegendGradient)");
+
+    select('#colorLegend').append("g")
+        .attr("class", "axis-y")
+        .attr("transform", "translate(0,0)")
+        .call(axisSettings);
 }
 
 export {makeCalendar, updateFeed};
